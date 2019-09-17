@@ -9,51 +9,24 @@ dimensionOfLattice = (1,1,1)
 LatticeConstant = 5
 
 
-class crystal():
+
+class sc():
     '''
 
     '''
+    extraAtoms = np.array([])
 
-    a = LatticeConstant
-    def __init__(self,structure,element,dimensionOfLattice,LatticeConstant):
+
+    def __init__(self,structure,element,dimensionOfLattice,a):
 
         self.structure = structure
         self.element = element
-        a = LatticeConstant
-        #Each column contains a unit cell
-        #The base atom for the unti cell is the last of the previous column
-        #except for the first where it is always assumed to be (0,0,0)
-        self.atoms =  np.array([[a,0,0]+[0,a,0]+[0,0,a]+[a,a,0]+[a,0,a]+[a,a,a]+[0,a,a]])
-        self.atoms = self.atoms.reshape((-1,3))
-        self.addExtraAtoms(structure,a)
 
-        self.extendUnitCell(dimensionOfLattice,a)
+        self.atoms =  np.array([[0,0,0]])
+        self.atoms = self.extendLatticePoint(self.atoms,dimensionOfLattice,a,0)
 
 
-
-    def addExtraAtoms(self,structure,a):
-        '''
-        '''
-        if structure == "sc":
-            return
-        elif structure == "bcc":
-            self.atoms =np.concatenate((self.atoms,0.5*np.array([[a,a,a]])),axis=0)
-        elif structure == "fcc" or structure == "diamond":
-            a2 = 0.5*a
-
-            extraAtoms =np.array([[a2,a2,0]+[a2,0,a2]+[0,a2,a2]+[a,a2,a2]+[a2,a2,a]+[a2,a,a2]])
-            extraAtoms = extraAtoms.reshape((-1,3))
-            self.atoms = np.concatenate((self.atoms,extraAtoms),axis=0)
-
-            if structure == "diamond":
-                extraAtoms = np.array([[0.25*a,0.25*a,0.25*a]+[0.25*a,0.25*a,0.75*a]+[0.5*a,0.75*a,0.25*a]+[0.75*a,0.75*a,0.75*a]])
-                extraAtoms = extraAtoms.reshape((-1,3))
-                self.atoms = np.concatenate((self.atoms,extraAtoms),axis=0)
-
-        return
-
-
-    def extendUnitCell(self,dimensionOfLattice,LatticeConstant):
+    def extendLatticePoint(self,atoms,dimensionOfLattice,a,nonVertex):
         '''
         '''
 
@@ -61,26 +34,26 @@ class crystal():
             '''
             '''
 
-            length = dimensionOfLattice[direction]
+            length = dimensionOfLattice[direction] - nonVertex
 
 
             #atomCount is the number in a unit cell
-            atomCount, __  = self.atoms.shape
+            atomCount, __  = atoms.shape
 
             #Need to RENAME
             if direction == 0:
-                vector = np.array([[LatticeConstant,0,0]])
+                vector = np.array([[a,0,0]])
             elif direction == 1:
-                vector = np.array([[0,LatticeConstant,0]])
+                vector = np.array([[0,a,0]])
             elif direction == 2:
-                vector = np.array([[0,0,LatticeConstant]])
+                vector = np.array([[0,0,a]])
 
             i = 0
             #SO MESSY
-            while i < length-1:
+            while i < length:
 
                 #Dimensions of atomsInBlock x (3*#atoms)
-                newUnitCells = self.atoms[i*atomCount:(i+1)*atomCount,:] + vector
+                newUnitCells = atoms[i*atomCount:(i+1)*atomCount,:] + vector
                 i += 1
                 #probably unecessary to keep converting - just one at the end
 
@@ -93,18 +66,17 @@ class crystal():
 
         xExtensionGen = unitCellGenerator(0)
         for k in xExtensionGen:
-            self.atoms = np.concatenate((self.atoms,k), axis=0)
-
-
+            atoms = np.concatenate((atoms,k), axis=0)
         yExtensionGen = unitCellGenerator(1)
         for k in yExtensionGen:
-            self.atoms = np.concatenate((self.atoms,k), axis=0)
-
+            atoms = np.concatenate((atoms,k), axis=0)
         zExtensionGen = unitCellGenerator(2)
         for k in zExtensionGen:
-            self.atoms = np.concatenate((self.atoms,k), axis=0)
+            atoms = np.concatenate((atoms,k), axis=0)
 
-        return
+        return atoms
+
+
 
 
 #Need to add file writing function
@@ -130,18 +102,39 @@ def writeToxyz(filename,crystal):
     return
 
 
-sc = crystal("sc","Si",dimensionOfLattice,LatticeConstant)
+class bcc(sc):
+
+    def __init__(self,structure,element,dimensionOfLattice,a):
+        super(bcc, self).__init__(structure,element,dimensionOfLattice,a)
+        extraAtoms = 0.5*np.array([[a,a,a]])
+        extraAtoms = self.extendLatticePoint(extraAtoms,dimensionOfLattice,a,1)
+        self.atoms = np.concatenate((self.atoms,extraAtoms),axis = 0)
+
+
+class fcc(sc):
+
+    def __init__(self,structure,element,dimensionOfLattice,a):
+        super(fcc, self).__init__(structure,element,dimensionOfLattice,a)
+        a2 = a/2
+        extraAtoms =np.array([[a2,a2,0]+[a2,0,a2]+[0,a2,a2]])
+        extraAtoms = extraAtoms.reshape((-1,3))
+        self.extendLatticePoint(extraAtoms,dimensionOfLattice,a,0)
+        self.atoms = np.concatenate((self.atoms,extraAtoms),axis = 0)
+
+
+
+sc = sc("sc","Si",dimensionOfLattice,LatticeConstant)
 
 writeToxyz("sc.xyz",sc)
 
-bcc = crystal("bcc","Si",dimensionOfLattice,LatticeConstant)
+bcc = bcc("bcc","Si",dimensionOfLattice,LatticeConstant)
 
 writeToxyz("bcc.xyz",bcc)
 
-fcc = crystal("fcc","Si",dimensionOfLattice,LatticeConstant)
+fcc = fcc("fcc","Si",dimensionOfLattice,LatticeConstant)
 
 writeToxyz("fcc.xyz",fcc)
 
-diamond = crystal("diamond","Si",dimensionOfLattice,LatticeConstant)
+#diamond = crystal("diamond","Si",dimensionOfLattice,LatticeConstant)
 
-writeToxyz("diamond.xyz",diamond)
+#writeToxyz("diamond.xyz",diamond)
