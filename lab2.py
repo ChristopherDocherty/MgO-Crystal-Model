@@ -6,7 +6,7 @@ import numpy as np
 
 
 #Hard coded parameters for crystals
-dimensionOfLattice = (2,2,2)
+dimensionOfLattice = (1,1,1) #Equivalent to coding n's
 LatticeConstant = 5
 
 
@@ -84,6 +84,22 @@ class sc():
 
 
         return atoms
+
+
+
+
+
+    def getFracCoord(a1,a2,a3):
+
+
+    #find vectors ni for calculation 
+    n1 = np.dot(b1,t)%1 - 0.5
+    n2 = np.dot(b2,t)%1 - 0.5
+    n3 = np.dot(b3,t)%1 - 0.5
+
+    
+    #Sum the vectors ai with ni prefactors
+    return n1*a1 + n2*a2 + n3*a3
 
 
 class bcc(sc):
