@@ -39,6 +39,16 @@ class sc():
 
         a -- Lattice constant
 
+        lVectors -- Lattice vectors for the given periodicity of unit cell
+
+        recipVectors -- Reciprocal vectors to the lattice vectors
+
+        cutoff -- Distance cutoff for nearest neighbour
+
+        nearestN -- a list containing tuples that have
+                    (index of 1st atom in self.atoms, index of 2nd atom, distance(1,2))
+                    where 1 and 2 refer to lattice points.
+
     '''
 
     def __init__(self,element,dimensionOfLattice,a):
@@ -46,6 +56,32 @@ class sc():
         self.element = element
         self.structure = "Simple Cubic"
         self.atoms = np.zeros((1,3))
+        self.cutoff = a
+
+
+        nx,ny,nz = dimensionOfLattice
+        a1 = np.array((a*nx,0,0))
+        a2 = np.array((0,a*ny,0))
+        a3 = np.array((0,0,a*nz))
+        self.lVectors = (a1,a2,a3)
+        self.recipVectors = self.getReciprocal()
+
+        #Need to apply periodic boundary conditions i.e. convert to fractional coordinates
+        #and put on range (-0.5,0.5)
+        self.fracAtoms = np.apply_along_axis(self.getFracCoord,1,self.atoms)
+
+
+
+
+
+
+
+        #Initialising nearest neighbours array with a row of zeros which will be deleted later
+        #self.nearestN = []
+        #self.findNearest()
+
+
+
 
         extraAtoms = self.extendUnitCell(self.atoms,dimensionOfLattice,a)
 
@@ -87,19 +123,67 @@ class sc():
 
 
 
+    def getReciprocal(self):
+        '''
+        '''
+
+        a1,a2,a3 = self.lVectors
+
+        b1 = np.cross(a2,a3)/(np.dot(a1,np.cross(a2,a3)))
+        b2 = np.cross(a3,a1)/(np.dot(a1,np.cross(a2,a3)))
+        b3= np.cross(a1,a2)/(np.dot(a1,np.cross(a2,a3)))
+
+        return b1,b2,b3
 
 
-    def getFracCoord(a1,a2,a3):
+
+        #Make testing and non testing versions
+    def getFracCoord(self,t):
+        '''
+        '''
+
+        a1,a2,a3 = self.lVectors
+        b1,b2,b3 = self.recipVectors
 
 
-    #find vectors ni for calculation 
-    n1 = np.dot(b1,t)%1 - 0.5
-    n2 = np.dot(b2,t)%1 - 0.5
-    n3 = np.dot(b3,t)%1 - 0.5
+        #find vectors ni for calculation and put them on the range (0,0.5)
+        n1 = np.dot(b1,t)%1 - 0.5
+        n2 = np.dot(b2,t)%1 - 0.5
+        n3 = np.dot(b3,t)%1 - 0.5
 
-    
-    #Sum the vectors ai with ni prefactors
-    return n1*a1 + n2*a2 + n3*a3
+
+        #Sum the vectors ai with ni prefactors
+        return n1*a1 + n2*a2 + n3*a3
+
+
+
+    def findNearest(self):
+        '''
+        '''
+
+        atomCount, __  = self.atoms.shape
+
+        for i in range(0,atomCount-1):
+            for j in range(i,atomCount):
+
+                distance = np.linalg.norm(self.fracAtoms[i],self.Atoms[j])
+                #Have to make sure this works okay given floating pointss
+                if distance  <= self.cutoff:
+                    self.nearestN.append((i,j,distance))
+
+
+        #WRITE here code to flip the first two parts and extend the list
+
+        #list comprehension with tuple flipping
+        forExtend = [(x[1],x[0],x[2]) for x in self.nearestN]
+
+
+        self.nearestN.extend(forExtend)
+
+
+
+
+
 
 
 class bcc(sc):
@@ -193,16 +277,19 @@ def writeToxyz(filename,crystal):
 
 sc1 = sc("Si",dimensionOfLattice,LatticeConstant)
 
-writeToxyz("sc.xyz", sc1)
 
-bcc1 = bcc("Si",dimensionOfLattice,LatticeConstant)
 
-writeToxyz("bcc.xyz", bcc1)
 
-fcc1 = fcc("Si",dimensionOfLattice,LatticeConstant)
+print("tets")
 
-writeToxyz("fcc.xyz", fcc1)
 
-diamond1 = diamond("Si",dimensionOfLattice,LatticeConstant)
 
-writeToxyz("diamond.xyz", diamond1)
+
+
+
+
+
+
+
+
+#Need to write tests for scc, bcc and fcc lattice vectors

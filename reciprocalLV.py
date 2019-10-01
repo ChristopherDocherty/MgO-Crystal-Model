@@ -7,7 +7,8 @@ import math
 dimensionOfLattice = (1,1,1) #Equivalent to coding n's
 a= 5
 
-t = (16.5,12.3,17.1)
+t = np.array([[16.5,12.3,17.1],[16.6,12.4,17.2]])
+
 
 
 nx,ny,nz = dimensionOfLattice
@@ -32,15 +33,15 @@ b1,b2,b3 = getReciprocal(a1,a2,a3)
 #Part 2 find fractinal coordinates
 # In[]:
 
-def getFracCoord(a1,a2,a3):
+def getFracCoord(t):
 
 
-    #find vectors ni for calculation 
+    #find vectors ni for calculation
     n1 = np.dot(b1,t)%1 - 0.5
     n2 = np.dot(b2,t)%1 - 0.5
     n3 = np.dot(b3,t)%1 - 0.5
 
-    
+
     #Sum the vectors ai with ni prefactors
     return n1*a1 + n2*a2 + n3*a3
 
@@ -48,6 +49,12 @@ def getFracCoord(a1,a2,a3):
 
 
 # In[]:
+
+
+
+print(t)
+
+zz = np.apply_along_axis(getFracCoord,1,t)
 
 
 
