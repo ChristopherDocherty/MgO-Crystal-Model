@@ -3,11 +3,12 @@
 #in VMD
 
 import numpy as np
+import math
 
 
 #Hard coded parameters for crystals
-dimensionOfLattice = (1,1,1) #Equivalent to coding n's
-LatticeConstant = 5
+dimensionOfLattice = (2,2,2) #Equivalent to coding n's
+LatticeConstant = 3
 
 
 
@@ -56,7 +57,11 @@ class sc():
         self.element = element
         self.structure = "Simple Cubic"
         self.atoms = np.zeros((1,3))
-        self.cutoff = a
+        self.cutoff = a + 0.001
+
+
+        extraAtoms = self.extendUnitCell(self.atoms,dimensionOfLattice,a)
+        self.atoms = extraAtoms
 
 
         nx,ny,nz = dimensionOfLattice
@@ -64,28 +69,11 @@ class sc():
         a2 = np.array((0,a*ny,0))
         a3 = np.array((0,0,a*nz))
         self.lVectors = (a1,a2,a3)
-        self.recipVectors = self.getReciprocal()
-
-        #Need to apply periodic boundary conditions i.e. convert to fractional coordinates
-        #and put on range (-0.5,0.5)
-        self.fracAtoms = np.apply_along_axis(self.getFracCoord,1,self.atoms)
+        self.recipVectors, __ = self.getReciprocal()
 
 
-
-
-
-
-
-        #Initialising nearest neighbours array with a row of zeros which will be deleted later
-        #self.nearestN = []
-        #self.findNearest()
-
-
-
-
-        extraAtoms = self.extendUnitCell(self.atoms,dimensionOfLattice,a)
-
-        self.atoms = extraAtoms
+        self.nearestN = []
+        self.findNearest()
 
 
     def extendUnitCell(self,atoms,dimensionOfLattice,a):
@@ -129,31 +117,62 @@ class sc():
 
         a1,a2,a3 = self.lVectors
 
-        b1 = np.cross(a2,a3)/(np.dot(a1,np.cross(a2,a3)))
-        b2 = np.cross(a3,a1)/(np.dot(a1,np.cross(a2,a3)))
-        b3= np.cross(a1,a2)/(np.dot(a1,np.cross(a2,a3)))
+        volume = np.dot(a1,np.cross(a2,a3))
 
-        return b1,b2,b3
+        b1 = np.cross(a2,a3)/volume
+        b2 = np.cross(a3,a1)/volume
+        b3 = np.cross(a1,a2)/volume
+
+
+        return (b1,b2,b3),volume
 
 
 
-        #Make testing and non testing versions
-    def getFracCoord(self,t):
+
+
+    #Make testing and non testing versions
+    def PBC(self, l1,l2):
         '''
+        takes in two lattice pointss and applies PBC where the origin
+        is the coordiante of the first lattice point
+
+        will return fractional coordinates and the PBC coordinates for
+        the second lattice point (this is cartesian but in a proper)
+
         '''
+        #get a's and b's
 
         a1,a2,a3 = self.lVectors
         b1,b2,b3 = self.recipVectors
 
 
-        #find vectors ni for calculation and put them on the range (0,0.5)
-        n1 = np.dot(b1,t)%1 - 0.5
-        n2 = np.dot(b2,t)%1 - 0.5
-        n3 = np.dot(b3,t)%1 - 0.5
+        t = l2-l1
 
 
-        #Sum the vectors ai with ni prefactors
-        return n1*a1 + n2*a2 + n3*a3
+        n1 = np.dot(b1,t)%1
+        n2 = np.dot(b2,t)%1
+        n3 = np.dot(b3,t)%1
+
+
+        if n1 > 0.5:
+            n1 -= 1
+        elif n1 < -0.5:
+            n1 += 1
+
+        if n2 > 0.5:
+            n2 -= 1
+        elif n2 < -0.5:
+            n2 += 1
+
+        if n3 > 0.5:
+            n3 -= 1
+        elif n3 < -0.5:
+            n3  += 1
+
+
+        return (n1,n2,n3), n1*a1 + n2*a2 + n3*a3
+
+
 
 
 
@@ -162,14 +181,19 @@ class sc():
         '''
 
         atomCount, __  = self.atoms.shape
-
         for i in range(0,atomCount-1):
-            for j in range(i,atomCount):
+            for j in range(i+1,atomCount):
 
-                distance = np.linalg.norm(self.fracAtoms[i],self.Atoms[j])
-                #Have to make sure this works okay given floating pointss
+                #Apply PBC
+                fracCord, PBCcoord = self.PBC(self.atoms[i,:],self.atoms[j,:])
+
+
+                distance = np.linalg.norm(PBCcoord)
+
                 if distance  <= self.cutoff:
                     self.nearestN.append((i,j,distance))
+
+
 
 
         #WRITE here code to flip the first two parts and extend the list
@@ -177,9 +201,7 @@ class sc():
         #list comprehension with tuple flipping
         forExtend = [(x[1],x[0],x[2]) for x in self.nearestN]
 
-
         self.nearestN.extend(forExtend)
-
 
 
 
@@ -198,10 +220,23 @@ class bcc(sc):
         super().__init__(element,dimensionOfLattice,a)
         self.structure = "Body Centred Cubic"
 
+
         #Hard coded bcc atom
         extraAtoms = 0.5*np.array([[a,a,a]])
         extraAtoms = super().extendUnitCell(extraAtoms,dimensionOfLattice,a)
         self.atoms = np.concatenate((self.atoms,extraAtoms),axis = 0)
+
+
+
+        #Add to the true value to cunter floating point error
+        self.cutoff = a*math.sqrt(3)/2 + 0.01
+
+
+
+
+
+        self.nearestN = []
+        self.findNearest()
 
 
 
@@ -224,72 +259,70 @@ class fcc(sc):
         self.atoms = np.concatenate((self.atoms,extraAtoms),axis = 0)
 
 
+        self.cutoff = a/math.sqrt(2) +0.001
 
 
-class diamond(fcc):
-    '''Creates an instance of a diamond crystal
-
-        Subclassed from fcc and extends that class by adding the extra atoms in
-        a diamond unit cell
-
-    '''
-    def __init__(self,element,dimensionOfLattice,a):
-
-        super().__init__(element,dimensionOfLattice,a)
-        self.structure = "Diamond"
-
-        #Hard coded diamond atoms
-        extraAtoms = np.array([[0.25*a,0.25*a,0.25*a]+[0.25*a,0.75*a,0.75*a]+[0.75*a,0.75*a,0.25*a]+[0.75*a,0.25*a,0.75*a]])
-        extraAtoms = extraAtoms.reshape((-1,3))
-
-        extraAtoms = super().extendUnitCell(extraAtoms,dimensionOfLattice,a)
-        self.atoms = np.concatenate((self.atoms,extraAtoms),axis = 0)
-
-
-
-
-def writeToxyz(filename,crystal):
-    ''' Takes some crystal class instance and writes its data to a .xyz file
-
-    Arguments:
-
-    filename -- Desired filename, should end in .xyz
-
-    crystal -- instance of any crystal type (i.e. sc class or subclass of sc)
-
-
-    '''
-    crystalFile = open(filename,"wt")
-
-
-    atomCountFinal = crystal.atoms.shape[0]
-
-
-    crystalFile.write("{0}\n".format(atomCountFinal) )
-    crystalFile.write("This is a {0} {1} \n".format(dimensionOfLattice,crystal.structure))
-    for i in range(0,atomCountFinal):
-        crystalFile.write("{0:s} \t {1:0.9f} \t {2:0.9f} \t {3:0.9f} \n".format(crystal.element,crystal.atoms[i,0],crystal.atoms[i,1],crystal.atoms[i,2]))
-
-    return
-
-
+        self.nearestN = []
+        self.findNearest()
 
 
 sc1 = sc("Si",dimensionOfLattice,LatticeConstant)
 
-
-
-
-print("tets")
-
+print(len(sc1.nearestN))
 
 
 
 
 
 
+# In[]:
+#For part 1 of lab 2:
+
+a = LatticeConstant
+
+#Calculating the colume and reciprocal vectors for SC primitive
+part1Crystal = sc("Si",(1,1,1),a)
+
+#In the case of simple cubci the unit and primitive cell are identical hence
+recVec, V = part1Crystal.getReciprocal()
+
+print("For a primitive simple cubic cell with the chosen lattice constant, the reciprocal vectors are {0}, {1} and {2} and the volume is {3} \n".format(recVec[0],recVec[1],recVec[2],V))
 
 
 
 
-#Need to write tests for scc, bcc and fcc lattice vectors
+
+#Calculating the volume and reciprocal vectors for bcc primitive
+
+t1 = a/2 *np.array([-1,1,1])
+t2 = a/2 *np.array([1,-1,1])
+t3 = a/2 *np.array([1,1,-1])
+
+
+part1Crystal.lVectors =(t1,t2,t3)
+
+recVec, V = part1Crystal.getReciprocal()
+
+print("For a primitive body centred cubic cell with the chosen lattice constant, the reciprocal vectors are {0}, {1} and {2} and the volume is {3} \n".format(recVec[0],recVec[1],recVec[2],V))
+
+
+
+
+
+#Calculating the volume and reciprocal vectors for fcc primitive
+
+t1 = a/2 *np.array([0,1,1])
+t2 = a/2 *np.array([1,0,1])
+t3 = a/2 *np.array([1,1,0])
+
+
+part1Crystal.lVectors =(t1,t2,t3)
+
+recVec, V = part1Crystal.getReciprocal()
+
+print("For a primitive face centred cubic cell with the chosen lattice constant, the reciprocal vectors are {0}, {1} and {2} and the volume is {3} \n".format(recVec[0],recVec[1],recVec[2],V))
+
+
+# In[]:
+
+#Part 2 of the lab is the method PBC() for sc and associated subclasses

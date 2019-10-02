@@ -5,7 +5,7 @@ import math
 
 #Hard coded parameters for crystals
 dimensionOfLattice = (1,1,1) #Equivalent to coding n's
-a= 5
+a= 2
 
 t = np.array([[16.5,12.3,17.1],[16.6,12.4,17.2]])
 
@@ -30,64 +30,50 @@ def getReciprocal(a1,a2,a3):
 
 b1,b2,b3 = getReciprocal(a1,a2,a3)
 
-#Part 2 find fractinal coordinates
-# In[]:
 
-def getFracCoord(t):
+def PBC(l1,l2):
+    '''
+    takes in two lattice pointss and applies PBC where the origin
+    is the coordiante of the first lattice point
 
+    will return fractional coordinates and the PBC coordinates for
+    the second lattice point (this is cartesian but in a proper)
 
-    #find vectors ni for calculation
-    n1 = np.dot(b1,t)%1 - 0.5
-    n2 = np.dot(b2,t)%1 - 0.5
-    n3 = np.dot(b3,t)%1 - 0.5
-
-
-    #Sum the vectors ai with ni prefactors
-    return n1*a1 + n2*a2 + n3*a3
+    '''
+    t = l2-l1
 
 
+    n1 = np.dot(b1,t)%1
+    n2 = np.dot(b2,t)%1
+    n3 = np.dot(b3,t)%1
 
 
-# In[]:
+    if n1 > 0.5:
+        n1 -= 1
+    elif n1 < -0.5:
+        n1 += 1
+
+    if n2 > 0.5:
+        n2 -= 1
+    elif n2 <-0.5:
+        n2 += 1
+
+    if n3 > 0.5:
+        n3 -= 1
+    elif n3 < -0.5:
+        n3  += 1
 
 
-
-print(t)
-
-zz = np.apply_along_axis(getFracCoord,1,t)
-
-
-
-scCutoff = a
-fccCutoff = math.sqrt(2)/4 * a
-bccCutoff = math.sqrt(3)/16 * a
-
-
-#use np.linalg.norm() Just put in difference vector
-
-
-#Second nicer way is to store in both each time and then cnosider one less atom each time n! checks v.s. n^n checks
-
-#will use np matrix to do the same as in the powerpoint except label1 and label2 will be three x,y,z coordinates of the atoms
-#in question HERE
-
-
-#Use self.atoms for number and then iterate over the row index
-#Again iterate over row index but one greater this time
-#Check if np.linalg.norm() is less than cutoff
-#If yes then copy in row index for each and put in distance
-#After fully iterating just use list comprehension or somethign to fip the first two columns and add them in
-
-#use np.flip to make a copy conttenate distances then concatenate that to the original matrix
+    return (n1,n2,n3), n1*a1 + n2*a2 + n3*a3
 
 
 
-#Check should give the correct number of neighbouring atoms
-
-#COuld potentially save neighbours to xyz file and have that serve as proof of validity
 
 
+l1 = np.array([0.3,0.3,0.3])
+l2 = np.array([15.5,16.3,14.2])
 
+print(PBC(l1,l2))
 
 
 
