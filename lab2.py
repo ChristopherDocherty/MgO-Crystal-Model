@@ -7,7 +7,7 @@ import math
 
 
 #Hard coded parameters for crystals
-dimensionOfLattice = (2,2,2) #Equivalent to coding n's
+dimensionOfLattice = (4,4,1) #Equivalent to coding n's
 LatticeConstant = 3
 
 
@@ -64,6 +64,9 @@ class sc():
         self.atoms = extraAtoms
 
 
+        #NEW CODE
+        #Hardcoding the lattice vectors and the using a funciton
+        #to find reciprocal vectors
         nx,ny,nz = dimensionOfLattice
         a1 = np.array((a*nx,0,0))
         a2 = np.array((0,a*ny,0))
@@ -71,7 +74,7 @@ class sc():
         self.lVectors = (a1,a2,a3)
         self.recipVectors, __ = self.getReciprocal()
 
-
+        #Create an empty list to store neighbour list and then call funciton  to populate it
         self.nearestN = []
         self.findNearest()
 
@@ -114,16 +117,20 @@ class sc():
     def getReciprocal(self):
         '''
         '''
-
+        #unpack lattice vectors
         a1,a2,a3 = self.lVectors
 
+        #Finding the volume as directed in the lecture notes
         volume = np.dot(a1,np.cross(a2,a3))
 
+        #Calcutlating the reciprocal vectors using the volume
         b1 = np.cross(a2,a3)/volume
         b2 = np.cross(a3,a1)/volume
         b3 = np.cross(a1,a2)/volume
 
 
+        #As requested in the lab notes returning both the reciprocal
+        #vectors and the volume
         return (b1,b2,b3),volume
 
 
@@ -146,30 +153,34 @@ class sc():
         b1,b2,b3 = self.recipVectors
 
 
+        #Centering around l1
         t = l2-l1
 
-
+        #Calculating fractional coordinates in line with lecture notes
         n1 = np.dot(b1,t)%1
         n2 = np.dot(b2,t)%1
         n3 = np.dot(b3,t)%1
 
 
-        if n1 > 0.5:
+        #A series of if statements to apply PBC i.e. move atoms
+        #past the halfway point to equivalent location with PBC
+        if n1 >= 0.5:
             n1 -= 1
         elif n1 < -0.5:
             n1 += 1
 
-        if n2 > 0.5:
+        if n2 >= 0.5:
             n2 -= 1
         elif n2 < -0.5:
             n2 += 1
 
-        if n3 > 0.5:
+        if n3 >= 0.5:
             n3 -= 1
         elif n3 < -0.5:
             n3  += 1
 
 
+        #returnig the fracitnal coordinates and t2 as requested
         return (n1,n2,n3), n1*a1 + n2*a2 + n3*a3
 
 
@@ -178,6 +189,19 @@ class sc():
 
     def findNearest(self):
         '''
+        Goes through each pair of atoms only once adn calculates
+        teh distance with PBC, if it is suficiently low to be a nearest neighbour the two atoms' indexes in self.atoms
+        are saved into self.nearestN with their corresponding distances
+
+        This list will contain a copy of all the pairs of atoms
+        but to be in line with the notes all permutations of
+        aotms are saved not just all the combinations
+
+
+        this ensures that each atom in row 1 will have the correct number of nearest neighbours in row 2 and that
+        the lenght of the list is:
+        #unit cells * coordination number * lattice points per unit cell
+
         '''
 
         atomCount, __  = self.atoms.shape
@@ -187,7 +211,6 @@ class sc():
                 #Apply PBC
                 fracCord, PBCcoord = self.PBC(self.atoms[i,:],self.atoms[j,:])
 
-
                 distance = np.linalg.norm(PBCcoord)
 
                 if distance  <= self.cutoff:
@@ -196,13 +219,17 @@ class sc():
 
 
 
-        #WRITE here code to flip the first two parts and extend the list
 
-        #list comprehension with tuple flipping
+
+        #In order to save all permutations tall the elements
+        #of the list must be copied with the two atoms reversed
+        #This is done through a list comprehension with tuple
+        #flipping
         forExtend = [(x[1],x[0],x[2]) for x in self.nearestN]
 
+        #Adding the extra permutations onto the
         self.nearestN.extend(forExtend)
-
+        
 
 
 
@@ -268,8 +295,8 @@ class fcc(sc):
 
 sc1 = sc("Si",dimensionOfLattice,LatticeConstant)
 
-print(len(sc1.nearestN))
 
+print(sorted(sc1.nearestN,key = lambda a : a[0]))
 
 
 
@@ -326,3 +353,16 @@ print("For a primitive face centred cubic cell with the chosen lattice constant,
 # In[]:
 
 #Part 2 of the lab is the method PBC() for sc and associated subclasses
+
+#If you need to test specific if PBC() works for specific instances
+#then it can be called as a class method. lattice and reciprocal
+#vectors can be specified as in part 1
+
+
+
+# In[]:
+
+#Part 3 of the lab is contained in findNearest() class method
+
+
+# In[]:
