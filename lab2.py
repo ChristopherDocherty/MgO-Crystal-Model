@@ -229,7 +229,8 @@ class sc():
 
         #Adding the extra permutations onto the
         self.nearestN.extend(forExtend)
-        
+        #Sort according to the first row atom
+        self.nearestN.sort(key = lambda a : a[0])
 
 
 
@@ -292,11 +293,6 @@ class fcc(sc):
         self.nearestN = []
         self.findNearest()
 
-
-sc1 = sc("Si",dimensionOfLattice,LatticeConstant)
-
-
-print(sorted(sc1.nearestN,key = lambda a : a[0]))
 
 
 
@@ -366,3 +362,27 @@ print("For a primitive face centred cubic cell with the chosen lattice constant,
 
 
 # In[]:
+
+#Part 4 of the lab is shown  below
+
+sc1 = sc("Si",(4,4,1),LatticeConstant)
+
+print("below is sc1's nearest neighbour list of expected size {} (1 lattice point * 16 unit cells * 4 NN)".format(len(sc1.nearestN)))
+print(sc1.nearestN)
+print("\n")
+
+
+
+bcc1 = bcc("Si",(3,3,3),LatticeConstant)
+
+print("below is bcc1's nearest neighbour list of expected size {} (2 lattice point * 27 unit cells * 8 NN - as this is a 2d lattice like the powerpoint)".format(len(bcc1.nearestN)))
+print(bcc1.nearestN)
+print("\n")
+
+
+fcc1 = fcc("Si",(3,3,3),LatticeConstant)
+print("below is fcc1's nearest neighbour list of expected size {} (4 lattice point * 27 unit cells *  12NN)".format(len(fcc1.nearestN)))
+print(fcc1.nearestN)
+print("\n")
+
+#All the above parameters can be altered if a different test is required
