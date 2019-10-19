@@ -79,9 +79,6 @@ class sc():
         self.lVectors = (a1,a2,a3)
         self.recipVectors, __ = self.getReciprocal()
 
-        #Create an empty list to store neighbour list and then call funciton  to populate it
-        self.nearestN = []
-        self.findNearest()
 
 
     def extendUnitCell(self,atoms,dimensionOfLattice,a):
@@ -119,111 +116,112 @@ class sc():
 
 
 
-        def getReciprocal(self):
-            '''
-            '''
-            #unpack lattice vectors
-            a1,a2,a3 = self.lVectors
+    def getReciprocal(self):
+        '''
+        '''
+        #unpack lattice vectors
+        a1,a2,a3 = self.lVectors
 
-            #Finding the volume as directed in the lecture notes
-            volume = np.dot(a1,np.cross(a2,a3))
+        #Finding the volume as directed in the lecture notes
+        volume = np.dot(a1,np.cross(a2,a3))
 
-            #Calcutlating the reciprocal vectors using the volume
-            b1 = np.cross(a2,a3)/volume
-            b2 = np.cross(a3,a1)/volume
-            b3 = np.cross(a1,a2)/volume
+        #Calcutlating the reciprocal vectors using the volume
+        b1 = np.cross(a2,a3)/volume
+        b2 = np.cross(a3,a1)/volume
+        b3 = np.cross(a1,a2)/volume
 
 
-            #As requested in the lab notes returning both the reciprocal
-            #vectors and the volume
-            return (b1,b2,b3),volume
+        #As requested in the lab notes returning both the reciprocal
+        #vectors and the volume
+        return (b1,b2,b3),volume
 
 
 
 
 
     #Make testing and non testing versions
-        def PBC(self, l1,l2):
-            '''
-            takes in two lattice pointss and applies PBC where the origin
-            is the coordiante of the first lattice point
+    def PBC(self, l1,l2):
+        '''
+        takes in two lattice pointss and applies PBC where theorigin
+        is the coordiante of the first lattice point
 
-            will return fractional coordinates and the PBC coordinates for
-            the second lattice point (this is cartesian but in a proper)
+        will return fractional coordinates and the PBCcoordinates for
+        the second lattice point (this is cartesian but in aproper)
 
-            '''
-            #get a's and b's
+        '''
+        #get a's and b's
 
-            a1,a2,a3 = self.lVectors
-            b1,b2,b3 = self.recipVectors
-
-
-            #Centering around l1
-            t = l2-l1
-
-            #Calculating fractional coordinates in line with lecture notes
-            n1 = np.dot(b1,t)%1
-            n2 = np.dot(b2,t)%1
-            n3 = np.dot(b3,t)%1
+        a1,a2,a3 = self.lVectors
+        b1,b2,b3 = self.recipVectors
 
 
-            #A series of if statements to apply PBC i.e. move atoms
-            #past the halfway point to equivalent location with PBC
-            if n1 >= 0.5:
-                n1 -= 1
-            elif n1 < -0.5:
-                n1 += 1
+        #Centering around l1
+        t = l2-l1
 
-            if n2 >= 0.5:
-                n2 -= 1
-            elif n2 < -0.5:
-                n2 += 1
-
-            if n3 >= 0.5:
-                n3 -= 1
-            elif n3 < -0.5:
-                n3  += 1
+        #Calculating fractional coordinates in line with lecturenotes
+        n1 = np.dot(b1,t)%1
+        n2 = np.dot(b2,t)%1
+        n3 = np.dot(b3,t)%1
 
 
-            #returnig the fracitnal coordinates and t2 as requested
+        #A series of if statements to apply PBC i.e. move atoms
+        #past the halfway point to equivalent location with PBC
+        if n1 >= 0.5:
+            n1 -= 1
+        elif n1 < -0.5:
+            n1 += 1
 
-            return (n1,n2,n3), n1*a1 + n2*a2 + n3*a3
+        if n2 >= 0.5:
+            n2 -= 1
+        elif n2 < -0.5:
+            n2 += 1
+
+        if n3 >= 0.5:
+            n3 -= 1
+        elif n3 < -0.5:
+            n3  += 1
 
 
+        #returnig the fracitnal coordinates and t2 as requested
+
+        return (n1,n2,n3), n1*a1 + n2*a2 + n3*a3
 
 
 
-        def findNearest(self):
-            '''
-            Goes through each pair of atoms only once adn calculates
-            teh distance with PBC, if it is suficiently low to be a nearest     neighbour the two atoms' indexes in self.atoms
-            are saved into self.nearestN with their corresponding distances
-
-            This list will contain a copy of all the pairs of atoms
-            but to be in line with the notes all permutations of
-            aotms are saved not just all the combinations
 
 
-            this ensures that each atom in row 1 will have the correct number of    nearest neighbours in row 2 and that
-            the lenght of the list is:
-            #unit cells * coordination number * lattice points per unit cell
+    def getDistanceDict(self):
+        '''
+            NEED NEW EXPLANATION
 
-            '''
+        '''
 
-            atomCount, __  = self.atoms.shape
-            for i in range(0,atomCount-1):
-                for j in range(i+1,atomCount):
-
-                    #Apply PBC
-                    fracCord, PBCcoord = self.PBC(self.atoms[i,:],self.atoms[j,:])
-
-                    distance = np.linalg.norm(PBCcoord)
-
-                    if distance  <= self.cutoff:
-                        self.nearestN.append((i,j,distance))
+        self.distanceCNT = {}
 
 
-                
+        atomCount, __  = self.atoms.shape
+
+        for i in range(0,atomCount-1):
+            for j in range(i+1,atomCount):
+
+                #Apply PBC
+                fracCord, PBCcoord = self.PBC(self.atoms[i,:],self.atoms[j,:])
+
+                distance = np.linalg.norm(PBCcoord)
+
+                if distance  <= self.cutoff:
+                    found = False
+                    for dist in sorted(self.distanceCNT.keys()):
+                        if distance < dist +0.01 and distance > dist - 0.01:
+                            self.distanceCNT[dist] += 1
+                            found = True
+                            break
+                    if found == False:
+                        self.distanceCNT[distance] = 0
+
+
+
+
 
 
 
@@ -253,11 +251,14 @@ class fcc(sc):
         self.atoms = np.concatenate((self.atoms,extraAtoms),axis = 0)
 
 
-        self.cutoff = a/math.sqrt(2) +0.001
+        maxLength = max(dimensionOfLattice)
+
+        self.cutoff = (maxLength/1) * a + 0.01
 
 
-        self.nearestN = []
-        self.findNearest()
+        self.getDistanceDict()
+
+        self.total_potential()
 
 
     def LJ_potential(self, distance):
@@ -266,7 +267,12 @@ class fcc(sc):
 
         return 4*epsilon * (sig_dist**12 - sig_dist**6)
 
-    def Total_potential(self):
+
+    def total_potential(self):
+
+        forSum = [self.LJ_potential(x) * y for x,y in zip(self.distanceCNT.keys(),self.distanceCNT)]
+
+        self.totalV = sum(forSum)
 
 
 
@@ -276,6 +282,12 @@ class fcc(sc):
 
 
 
+Ne1 = fcc("Ne",(2,2,2),LatticeConstant)
+Ne2 = fcc("Ne",(3,3,3),LatticeConstant)
+Ne3 = fcc("Ne",(4,4,4),LatticeConstant)
+Ne4 = fcc("Ne",(5,5,5),LatticeConstant)
 
-distances = np.arange(250,600,1)/100
-potentials = LJ_potential(distances)
+
+
+
+print(Ne1.totalV, Ne2.totalV,Ne3.totalV,Ne4.totalV)
