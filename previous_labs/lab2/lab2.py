@@ -8,7 +8,7 @@ import math
 
 #Hard coded parameters for crystals
 dimensionOfLattice = (4,4,1) #Equivalent to coding n's
-LatticeConstant = 3
+LatticeConstant = 1
 
 
 
@@ -298,10 +298,15 @@ class fcc(sc):
 
 
 
-# In[]:
 #For part 1 of lab 2:
 
+
+
+
 a = LatticeConstant
+
+print("the lattice constant is {} \n".format(a))
+
 
 #Calculating the colume and reciprocal vectors for SC primitive
 part1Crystal = sc("Si",(1,1,1),a)
@@ -346,7 +351,6 @@ recVec, V = part1Crystal.getReciprocal()
 print("For a primitive face centred cubic cell with the chosen lattice constant, the reciprocal vectors are {0}, {1} and {2} and the volume is {3} \n".format(recVec[0],recVec[1],recVec[2],V))
 
 
-# In[]:
 
 #Part 2 of the lab is the method PBC() for sc and associated subclasses
 
@@ -356,12 +360,9 @@ print("For a primitive face centred cubic cell with the chosen lattice constant,
 
 
 
-# In[]:
-
 #Part 3 of the lab is contained in findNearest() class method
 
 
-# In[]:
 
 #Part 4 of the lab is shown  below
 
