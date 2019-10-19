@@ -5,7 +5,7 @@ import math
 import matplotlib.pyplot as plt
 
 #Hard coded parameters for crystals
-dimensionOfLattice = (2,1,1) #Equivalent to coding n's
+dimensionOfLattice = (3,3,3) #Equivalent to coding n's
 LatticeConstant = 1
 
 #Lennard Jones parameters
@@ -253,7 +253,7 @@ class fcc(sc):
 
         maxLength = max(dimensionOfLattice)
 
-        self.cutoff = (maxLength/1) * a + 0.01
+        self.cutoff = (maxLength) * a + 0.01
 
 
         self.getDistanceDict()
@@ -279,15 +279,14 @@ class fcc(sc):
 
 
 
+aValues = np.arange(425,437,0.5)/100
+potentials = []
+
+for x in aValues:
+    Ne = fcc("Ne",dimensionOfLattice,x)
+    potentials.append(Ne.totalV)
 
 
 
-Ne1 = fcc("Ne",(2,2,2),LatticeConstant)
-Ne2 = fcc("Ne",(3,3,3),LatticeConstant)
-Ne3 = fcc("Ne",(4,4,4),LatticeConstant)
-Ne4 = fcc("Ne",(5,5,5),LatticeConstant)
-
-
-
-
-print(Ne1.totalV, Ne2.totalV,Ne3.totalV,Ne4.totalV)
+plt.plot(aValues,potentials)
+plt.show()
