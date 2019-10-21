@@ -1,17 +1,35 @@
-#Lennard-Jones potential for Ne crystal
+#Coulomb-Buckingham potential for KF crystal
 
 import numpy as np
 import math
 import matplotlib.pyplot as plt
 
 #Hard coded parameters for crystals
-dimensionOfLattice = (3,3,3) #Equivalent to coding n's
-LatticeConstant = 1
+dimensionOfLattice = (1,1,1) #Equivalent to coding n's
+LatticeConstant = 1 #Measured in Angstroms
 
-#Lennard Jones parameters
+#Coulomb Parameters
 
-epsilon = 3.084 * 10**(-3) #ev
-sigma = 2.782 #Angstroms
+epsilon_not = 8.854 * 10**(-12)
+e_charge = 1.602 * 10**(-19)
+
+
+#Buckingham parameters
+
+#K+ <-> K+ interactions
+App = 3796.9 #eV
+rhopp = 0.2603 #Angstroms
+Cpp = 52.0 #Angstrom ^(-6)
+
+#F- <-> F- interactions
+Amm = 1127.7 #eV
+rhomm = 0.2753 # Angstroms
+Cmm = 26.8 #Angstrom ^(-6)
+
+#K+ <-> F- interactions
+Apm = 2426.8 #eV
+rhopm = 0.2770 #Angstroms
+Cpm = 44.60 #Angstrom ^(6)
 
 
 
@@ -36,6 +54,16 @@ class sc():
 
         self.atoms -- An np.array containing all the atoms in the crystal. Each row is an atom while the columns are x,y and z postion respectively
 
+        lVectors -- Lattice vectors for the given periodicity of unit cell
+
+        recipVectors -- Reciprocal vectors to the lattice vectors
+
+        cutoff -- Distance cutoff for nearest neighbour
+
+        nearestN -- a list containing tuples that have
+                    (index of 1st atom in self.atoms, index of 2nd atom, distance(1,2))
+                    where 1 and 2 refer to lattice points
+
 
         Constructor arguments:
 
@@ -45,23 +73,18 @@ class sc():
 
         a -- Lattice constant
 
-        lVectors -- Lattice vectors for the given periodicity of unit cell
+        init_pos -- Position of base atom which will be extended to
+        desired peiodicity
 
-        recipVectors -- Reciprocal vectors to the lattice vectors
 
-        cutoff -- Distance cutoff for nearest neighbour
-
-        nearestN -- a list containing tuples that have
-                    (index of 1st atom in self.atoms, index of 2nd atom, distance(1,2))
-                    where 1 and 2 refer to lattice points.
 
     '''
 
-    def __init__(self,element,dimensionOfLattice,a):
+    def __init__(self,element,dimensionOfLattice,a,init_pos):
 
         self.element = element
         self.structure = "Simple Cubic"
-        self.atoms = np.zeros((1,3))
+        self.atoms = np.array(init_pos)
         self.cutoff = a + 0.001
 
 
@@ -236,16 +259,19 @@ class fcc(sc):
     '''Creates an instance of a face centred cubic crystal
 
         Subclassed from sc and extends that class by adding the extra atoms in
-        a bcc unit cell
+        a fcc unit cell
 
     '''
 
-    def __init__(self,element,dimensionOfLattice,a):
-        super().__init__(element,dimensionOfLattice,a)
+    def __init__(self,element,dimensionOfLattice,a,init_pos):
+        super().__init__(element,dimensionOfLattice,a,init_pos)
         self.structure = "Face Centred Cubic"
 
+        init_pos = np.concatenate((init_pos,init_pos,init_pos),axis =1)
         #Hard coded fcc atoms
         extraAtoms =np.array( [[0,0.5*a,0.5*a]+[0.5*a,0,0.5*a]+[0.5*a,0.5*a,0]])
+        extraAtoms += init_pos
+
         extraAtoms = extraAtoms.reshape((-1,3))
         extraAtoms = super().extendUnitCell(extraAtoms,dimensionOfLattice,a)
         self.atoms = np.concatenate((self.atoms,extraAtoms),axis = 0)
@@ -261,32 +287,137 @@ class fcc(sc):
         self.total_potential()
 
 
-    def LJ_potential(self, distance):
+    def Buckingham_potential(self,r,two_atom):
 
-        sig_dist = sigma/distance
+        if two_atom == True:
+            A, rho, C = (Apm,rhopm,Cpm)
+        else:
+            if self.element == "K":
+                A, rho, C = (App,rhopp,Cpp)
+            elif self.element == "F":
+                A, rho, C = (Amm,rhomm,Cmm)
 
-        return 4*epsilon * (sig_dist**12 - sig_dist**6)
+
+
+
+
+        return A* math.exp(-r/rho) - C/(r**6)
+
+    def Coulomb_potential(self,r,two_atom):
+
+        qplus = 19*e_charge
+        qminus = -9*e_charge
+
+
+        if two_atom == True:
+            q_product = qplus*qminus
+        else:
+            if self.element == "K":
+                q_product = qplus**2
+            elif self.element == "F":
+                q_product = qminus**2
+
+
+        #Will always be interaction between K and F
+        ke = 1/(4*math.pi*epsilon_not)
+        if r == 0 and two_atom == True:
+            print("oopsie daisies")
+
+        return (ke*q_product)/r
+
 
 
     def total_potential(self):
 
-        forSum = [self.LJ_potential(x) * y for x,y in zip(self.distanceCNT.keys(),self.distanceCNT)]
+        forSum = [(self.Coulomb_potential(x,False) + self.Buckingham_potential(x,False)) * y for x,y in zip(self.distanceCNT.keys(),self.distanceCNT)]
 
         self.totalV = sum(forSum)
 
+    def get_combined_DistanceDict(self,other):
+
+        self.combineDistanceCNT = {}
+
+        atomCount, __  = self.atoms.shape
+
+        for i in range(0,atomCount):
+            for j in range(0,atomCount):
+
+                #Apply PBC
+                fracCord, PBCcoord = self.PBC(self.atoms[i,:],other.atoms[j,:])
+
+                distance = np.linalg.norm(PBCcoord)
+
+                if distance  <= self.cutoff:
+                    found = False
+                    for dist in sorted(self.combineDistanceCNT.keys()):
+                        if distance < dist +0.01 and distance > dist - 0.01:
+                            self.combineDistanceCNT[dist] += 1
+                            found = True
+                            break
+                    if found == False:
+                        self.combineDistanceCNT[distance] = 0
+
+
+    def two_atom_basis_potential(self,other):
+
+        self.get_combined_DistanceDict(other)
+
+
+
+        forSum = [(self.Coulomb_potential(x,True)+self.Buckingham_potential(x,True))*y for x,y in zip(self.combineDistanceCNT.keys(),self.combineDistanceCNT)]
+
+        return sum(forSum)
+
+
+
+
+Kfcc = fcc("K",dimensionOfLattice,LatticeConstant,np.zeros((1,3)))
+
+Ffcc = fcc("F",dimensionOfLattice,LatticeConstant,np.array([[0,0,LatticeConstant/2]]))
+
+
+
+
+def writeToxyz(filename,crystal):
+    ''' Takes some crystal class instance and writes its data to a .xyz file
+
+    Arguments:
+
+    filename -- Desired filename, should end in .xyz
+
+    crystal -- instance of any crystal type (i.e. sc class or subclass of sc)
+
+
+    '''
+    crystalFile = open(filename,"wt")
+
+
+    atomCountFinal = crystal.atoms.shape[0]
+
+
+    crystalFile.write("{0}\n".format(atomCountFinal) )
+    crystalFile.write("This is a {0} {1} \n".format(dimensionOfLattice,crystal.structure))
+    for i in range(0,atomCountFinal):
+        crystalFile.write("{0:s} \t {1:0.9f} \t {2:0.9f} \t {3:0.9f} \n".format(crystal.element,crystal.atoms[i,0],crystal.atoms[i,1],crystal.atoms[i,2]))
+
+    return
+
+writeToxyz("K.xyz", Kfcc)
+writeToxyz("F.xyz", Ffcc)
 
 
 
 
 
-aValues = np.arange(425,437,0.5)/100
-potentials = []
-
-for x in aValues:
-    Ne = fcc("Ne",dimensionOfLattice,x)
-    potentials.append(Ne.totalV)
 
 
 
-plt.plot(aValues,potentials)
-plt.show()
+
+#plus_minus_potential = Kfcc.two_atom_basis_potential(Ffcc)
+
+
+#total_potential = plus_minus_potential + Kfcc.totalV + Ffcc. totalV
+
+#print(total_potential)
+
+#print(Kfcc.combineDistanceCNT)
