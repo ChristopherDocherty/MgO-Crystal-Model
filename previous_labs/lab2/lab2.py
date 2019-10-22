@@ -11,6 +11,50 @@ dimensionOfLattice = (4,4,1) #Equivalent to coding n's
 LatticeConstant = 1
 
 
+def dotProduct(v1,v2):
+    '''
+    Arguments:
+
+    v1,v2 - NumPy arrays of same size
+
+    Returns:
+
+    dp - result of dot product of v1 & v2
+    '''
+
+    dp = [x*y for x,y in zip(v1,v2)]
+    dp = sum(dp)
+
+    return dp
+
+
+def crossProduct(v1,v2):
+    '''
+    Arguments:
+
+    v1,v2 - NumPy arrays of shape (1,3)
+
+    Returns:
+
+    v3 - Vector resulting from cross product
+    '''
+
+
+    pos1 = v1[1]*v2[2] - v1[2]*v2[1]
+    pos2 = v1[2]*v2[0] - v1[0]*v2[2]
+    pos3 = v1[0]*v2[1] - v1[1]*v2[0]
+
+    v3 = np.array([pos1,pos2,pos3])
+
+
+    return v3
+
+
+
+
+
+
+
 
 class sc():
     '''Creates an instance of a simple cubic crystal
@@ -121,12 +165,12 @@ class sc():
         a1,a2,a3 = self.lVectors
 
         #Finding the volume as directed in the lecture notes
-        volume = np.dot(a1,np.cross(a2,a3))
+        volume = dotProduct(a1,crossProduct(a2,a3))
 
         #Calcutlating the reciprocal vectors using the volume
-        b1 = np.cross(a2,a3)/volume
-        b2 = np.cross(a3,a1)/volume
-        b3 = np.cross(a1,a2)/volume
+        b1 = crossProduct(a2,a3)/volume
+        b2 = crossProduct(a3,a1)/volume
+        b3 = crossProduct(a1,a2)/volume
 
 
         #As requested in the lab notes returning both the reciprocal
@@ -157,9 +201,9 @@ class sc():
         t = l2-l1
 
         #Calculating fractional coordinates in line with lecture notes
-        n1 = np.dot(b1,t)%1
-        n2 = np.dot(b2,t)%1
-        n3 = np.dot(b3,t)%1
+        n1 = dotProduct(b1,t)%1
+        n2 = dotProduct(b2,t)%1
+        n3 = dotProduct(b3,t)%1
 
 
         #A series of if statements to apply PBC i.e. move atoms
