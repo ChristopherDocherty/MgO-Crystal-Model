@@ -5,46 +5,76 @@ import math
 import matplotlib.pyplot as plt
 
 #Hard coded parameters for crystals
-dimensionOfLattice = (4,4,4) #Equivalent to coding n's
+dimensionOfLattice = (3,3,3) #Equivalent to coding n's
 LatticeConstant = 4.2 #Measured in Angstroms
 
 #Coulomb Parameters
-
+#In SI units
 epsilon_not = 8.854 * 10**(-12)
 e_charge = 1.602 * 10**(-19)
+
+#Vaccum perittivity in eV * A * e^(-2)
+ke = 1/(math.pi * 4 * epsilon_not) * e_charge * 10**10
 
 
 
 #Buckingham parameters
 
 #MgO
-#F- <-> F- interactions
+
+paramDict = {"mm":(4870.0,0.2670,77.0),"pm":(926.69,0.29909,0)}
+q = 1.7**2
+
+
+#PUT THESE IN READ ME TABLE
 Amm = 4870.0 #eV
 rhomm =  0.2670 # Angstroms
-Cmm = 77.0 #Angstrom ^(-6)
+Cmm = 77.0 #Angstrom ^(-6) eV
 
-#K+ <-> F- interactions
+#Anion <-> Cation interactions
 Apm = 929.69 #eV
 rhopm = 0.29909  #Angstroms
 Cpm = 0 #Angstrom ^(6) eV
-'''
 
-#KCl
-#K+ <-> K+ interactions
-App = 3796.9#3796.9 #eV
-rhopp = 0.2603#0.2603 #Angstroms
-Cpp = 52.0 #Angstrom ^(-6)
 
-#F- <-> F- interactions
-Amm = 1227.2 #eV
-rhomm = 0.3214 # Angstroms
-Cmm = 165.4 #Angstrom ^(-6)
+def dotProduct(v1,v2):
+    '''
+    Arguments:
 
-#K+ <-> F- interactions
-Apm = 4117.9 #eV
-rhopm = 0.304  #Angstroms
-Cpm = 124.9 #Angstrom ^(6) eV
-'''
+    v1,v2 - NumPy arrays of same size
+
+    Returns:
+
+    dp - result of dot product of v1 & v2
+    '''
+
+    dp = [x*y for x,y in zip(v1,v2)]
+    dp = sum(dp)
+
+    return dp
+
+
+def crossProduct(v1,v2):
+    '''
+    Arguments:
+
+    v1,v2 - NumPy arrays of shape (1,3)
+
+    Returns:
+
+    v3 - Vector resulting from cross product
+    '''
+
+
+    pos1 = v1[1]*v2[2] - v1[2]*v2[1]
+    pos2 = v1[2]*v2[0] - v1[0]*v2[2]
+    pos3 = v1[0]*v2[1] - v1[1]*v2[0]
+
+    v3 = np.array([pos1,pos2,pos3])
+
+
+    return v3
+
 
 
 
@@ -159,12 +189,12 @@ class sc():
         a1,a2,a3 = self.lVectors
 
         #Finding the volume as directed in the lecture notes
-        volume = np.dot(a1,np.cross(a2,a3))
+        volume = dotProduct(a1,crossProduct(a2,a3))
 
         #Calcutlating the reciprocal vectors using the volume
-        b1 = np.cross(a2,a3)/volume
-        b2 = np.cross(a3,a1)/volume
-        b3 = np.cross(a1,a2)/volume
+        b1 = crossProduct(a2,a3)/volume
+        b2 = crossProduct(a3,a1)/volume
+        b3 = crossProduct(a1,a2)/volume
 
 
         #As requested in the lab notes returning both the reciprocal
@@ -196,9 +226,9 @@ class sc():
 
 
         #Calculating fractional coordinates in line with lecturenotes
-        n1 = np.dot(b1,t)%1
-        n2 = np.dot(b2,t)%1
-        n3 = np.dot(b3,t)%1
+        n1 = dotProduct(b1,t)%1
+        n2 = dotProduct(b2,t)%1
+        n3 = dotProduct(b3,t)%1
 
 
         #A series of if statements to apply PBC i.e. move atoms
@@ -222,40 +252,6 @@ class sc():
         #returnig the fracitnal coordinates and t2 as requested
 
         return (n1,n2,n3), n1*a1 + n2*a2 + n3*a3
-
-
-
-
-
-    def getDistanceDict(self):
-        '''
-            NEED NEW EXPLANATION
-
-        '''
-
-        self.distanceCNT = {}
-
-
-        atomCount, __  = self.atoms.shape
-
-        for i in range(0,atomCount-1):
-            for j in range(i+1,atomCount):
-
-                #Apply PBC
-                fracCord, PBCcoord = self.PBC(self.atoms[i,:],self.atoms[j,:])
-
-                distance = np.linalg.norm(PBCcoord)
-
-                if distance  <= self.cutoff:
-                    found = False
-                    for dist in sorted(self.distanceCNT.keys()):
-                        if distance < dist +0.01 and distance > dist - 0.01:
-                            self.distanceCNT[dist] += 1
-                            found = True
-                            break
-                    if found == False:
-                        self.distanceCNT[distance] = 1
-
 
 
 
@@ -290,126 +286,150 @@ class fcc(sc):
         extraAtoms = super().extendUnitCell(extraAtoms,dimensionOfLattice,a)
         self.atoms = np.concatenate((self.atoms,extraAtoms),axis = 0)
 
+        #Add charge as 4th column
+        atomCount, __ = self.atoms.shape
+
+        if self.element == "Mg":
+            chargeCol = np.zeros((atomCount,1)) + 2
+        elif self.element == "O":
+            chargeCol = np.zeros((atomCount,1)) -2
+
+        self.atoms = np.concatenate((self.atoms,chargeCol),axis = 1)
+
 
         maxLength = max(dimensionOfLattice)
 
+        self.cutoff = a * maxLength
 
 
-        self.cutoff = a/2
 
 
-        self.getDistanceDict()
+    def Buckingham_potential(self,r,params):
+        '''
+        '''
 
-        self.total_potential()
+        A, rho, C = paramDict[params]
+
+        return A * math.exp(-r/rho) - C/(r**6)
 
 
-    def Buckingham_potential(self,r,two_atom):
+    def Coulomb_potential(self,r,params):
+        '''
+        '''
 
-        if two_atom == True:
-            A, rho, C = (Apm,rhopm,Cpm)
+        if params == "pm":
+            q_product = - q
         else:
-            A, rho, C = (Amm,rhomm,Cmm)
-        temp=A * math.exp(-r/rho)
-        temp2= - C/(r**6)
-        return temp+temp2
+            q_product = q
 
 
-    def Coulomb_potential(self,r,two_atom):
-
-        qplus = 2
-        qminus = -2
-
-        r = r
-
-
-        if two_atom == True:
-            q_product = qplus*qminus
-        else:
-            if self.element == "K":
-                q_product = qplus**2
-            elif self.element == "F":
-                q_product = qminus**2
-
-        #ke = 1/(math.pi * 4 * epsilon_not)
-        ke = 14.3981
         return (ke*q_product)/r
 
 
+    def __add__(self,otherCrystal):
 
-    def total_potential(self):
+        self.atoms = np.concatenate((self.atoms,otherCrystal.atoms),axis = 0)
 
-        if self.element == "K":
-            forSum = [self.Coulomb_potential(x,False) * y for x,y in zip(self.distanceCNT.keys(),self.distanceCNT)]
-        else:
-            forSum = [(self.Coulomb_potential(x,False) + self.Buckingham_potential(x,False)) * y for x,y in zip(self.distanceCNT.keys(),self.distanceCNT)]
-
-        self.totalV = sum(forSum)
+        return None
 
 
-    def get_combined_DistanceDict(self,other):
 
-        self.combineDistanceCNT = {}
+
+    def getDistanceMatrix(self):
+        '''
+        '''
+
+        self.distanceMatrix = []
 
         atomCount, __  = self.atoms.shape
-
-        for i in range(0,atomCount):
-            for j in range(0,atomCount):
+        for i in range(0,atomCount-1):
+            for j in range(i+1,atomCount):
 
                 #Apply PBC
-                fracCord, PBCcoord = self.PBC(self.atoms[i,:],other.atoms[j,:])
+                fracCord, PBCcoord = self.PBC(self.atoms[i,:3],self.atoms[j,:3])
 
+                distance = math.sqrt(dotProduct(PBCcoord,PBCcoord))
 
-                distance = np.linalg.norm(PBCcoord)
 
                 if distance  <= self.cutoff:
-                    found = False
-                    for dist in sorted(self.combineDistanceCNT.keys()):
-                        if distance < 1.01* dist and distance > 0.99*dist:
-                            self.combineDistanceCNT[dist] += 1
-                            found = True
-                            break
-                    if found == False:
-                        self.combineDistanceCNT[distance] = 1
+                    if self.atoms[i,3] == self.atoms[j,3]:
+                        if self.atoms[i,3] <0:
+                            parameters = "mm"
+                        else:
+                            parameters = "pp"
+
+                    else:
+                        parameters = "pm"
+
+                    self.distanceMatrix.append((i,j,distance,parameters))
 
 
-    def two_atom_basis_potential(self,other):
+    def getTotalPotential(self):
 
-        self.get_combined_DistanceDict(other)
+        self.latticePotential = 0
 
+        for row in self.distanceMatrix:
 
-
-        forSum = [(self.Coulomb_potential(x,True) +self.Buckingham_potential(x,True))*y for x,y in zip(self.combineDistanceCNT.keys(),self.combineDistanceCNT)]
-
-        return sum(forSum)
-
-
+            #Get Buckingham potential
+            if row[3] != "pp":
+                self.latticePotential += self.Buckingham_potential(row[2],row[3])
 
 
-both_potential = []
-singles_potential = []
-
-rs =  np.arange(4.0,10.0,0.3)
-dims = [(x,x,x) for x in range(1,6)]
+            #Get Coulomn potential
+            self.latticePotential += self.Coulomb_potential(row[2],row[3])
 
 
-for x in rs:
 
-    #Kfcc = fcc("K",x,LatticeConstant,np.zeros((1,3)))
-    #Ffcc = fcc("F",x,LatticeConstant,))
+#Uncomment the below code to see the graph showing the lattice constant for
+#which potential is mnimised
 
-    Kfcc = fcc("K",dimensionOfLattice,x,np.zeros((1,3)))
-    Ffcc = fcc("F",dimensionOfLattice,x,np.array([[0,0,x/2]]))
+lConstants = np.arange(4,4.5,0.05)
+pots = []
+
+for i in lConstants:
+        Mgfcc = fcc("Mg",dimensionOfLattice,i,[[0,0,0]])
+        Ofcc = fcc("O",dimensionOfLattice,i,[[0,0,i/2]])
+
+        Mgfcc + Ofcc
+        MgOfcc = Mgfcc
+
+        MgOfcc.getDistanceMatrix()
+        MgOfcc.getTotalPotential()
+
+        pots.append(MgOfcc.latticePotential)
 
 
-    plus_minus_potential = Kfcc.two_atom_basis_potential(Ffcc)
 
-
-    both_potential.append(plus_minus_potential + Kfcc.totalV + Ffcc.totalV)
-    print(plus_minus_potential,Kfcc.totalV,Ffcc.totalV)
-
-plt.plot(rs,both_potential)
+print("The below graph shows the minimum occuring at 4.2 Angstroms as expected for MgO")
+plt.plot(lConstants,pots)
+plt.ylabel("Potential (eV)")
+plt.xlabel("Lattice Constant (Angstrom)")
+plt.title("Potential Minimising Lattice Constant")
 plt.show()
 
 
-#ePerAtom = [both_potential[x]/((x**3)*2) for x in range(2,6)]
-#print(ePerAtom)
+
+
+
+
+#To see test for converging average energy per per atom uncomment belwo section
+'''
+dims = [(x,x,x) for x in range(1,6)]
+pots = []
+
+
+for i in dims:
+        Mgfcc = fcc("Mg",i,LatticeConstant,[[0,0,0]])
+        Ofcc = fcc("O",i,LatticeConstant,[[0,0,LatticeConstant/2]])
+
+        Mgfcc + Ofcc
+        MgOfcc = Mgfcc
+
+        MgOfcc.getDistanceMatrix()
+        MgOfcc.getTotalPotential()
+
+        pots.append(MgOfcc.latticePotential/(i[1]**3))
+
+print(Below is the average energy per atom for cubes of size 1x1x1 to 5x5x5: \n)
+print(pots)
+'''
