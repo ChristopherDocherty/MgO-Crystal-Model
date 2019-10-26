@@ -5,8 +5,8 @@ import math
 import matplotlib.pyplot as plt
 
 #Hard coded parameters for crystals
-dimensionOfLattice = (3,3,3) #Equivalent to coding n's
-LatticeConstant = 1
+dimensionOfLattice = (6,6,6) #Equivalent to coding n's
+LatticeConstant = 4.2
 
 #Lennard Jones parameters
 
@@ -14,6 +14,45 @@ epsilon = 3.084 * 10**(-3) #eV
 sigma = 2.782 #Angstroms
 
 
+
+
+def dotProduct(v1,v2):
+    '''
+    Arguments:
+
+    v1,v2 - NumPy arrays of same size
+
+    Returns:
+
+    dp - result of dot product of v1 & v2
+    '''
+
+    dp = [x*y for x,y in zip(v1,v2)]
+    dp = sum(dp)
+
+    return dp
+
+
+def crossProduct(v1,v2):
+    '''
+    Arguments:
+
+    v1,v2 - NumPy arrays of shape (1,3)
+
+    Returns:
+
+    v3 - Vector resulting from cross product
+    '''
+
+
+    pos1 = v1[1]*v2[2] - v1[2]*v2[1]
+    pos2 = v1[2]*v2[0] - v1[0]*v2[2]
+    pos3 = v1[0]*v2[1] - v1[1]*v2[0]
+
+    v3 = np.array([pos1,pos2,pos3])
+
+
+    return v3
 
 
 
@@ -123,12 +162,12 @@ class sc():
         a1,a2,a3 = self.lVectors
 
         #Finding the volume as directed in the lecture notes
-        volume = np.dot(a1,np.cross(a2,a3))
+        volume = dotProduct(a1,crossProduct(a2,a3))
 
         #Calcutlating the reciprocal vectors using the volume
-        b1 = np.cross(a2,a3)/volume
-        b2 = np.cross(a3,a1)/volume
-        b3 = np.cross(a1,a2)/volume
+        b1 = crossProduct(a2,a3)/volume
+        b2 = crossProduct(a3,a1)/volume
+        b3 = crossProduct(a1,a2)/volume
 
 
         #As requested in the lab notes returning both the reciprocal
@@ -159,9 +198,9 @@ class sc():
         t = l2-l1
 
         #Calculating fractional coordinates in line with lecturenotes
-        n1 = np.dot(b1,t)%1
-        n2 = np.dot(b2,t)%1
-        n3 = np.dot(b3,t)%1
+        n1 = dotProduct(b1,t)%1
+        n2 = dotProduct(b2,t)%1
+        n3 = dotProduct(b3,t)%1
 
 
         #A series of if statements to apply PBC i.e. move atoms
@@ -189,35 +228,6 @@ class sc():
 
 
 
-
-    def getDistanceDict(self):
-        '''
-            NEED NEW EXPLANATION
-
-        '''
-
-        self.distanceCNT = {}
-
-
-        atomCount, __  = self.atoms.shape
-
-        for i in range(0,atomCount-1):
-            for j in range(i+1,atomCount):
-
-                #Apply PBC
-                fracCord, PBCcoord = self.PBC(self.atoms[i,:],self.atoms[j,:])
-
-                distance = np.linalg.norm(PBCcoord)
-
-                if distance  <= self.cutoff:
-                    found = False
-                    for dist in sorted(self.distanceCNT.keys()):
-                        if distance < dist +0.01 and distance > dist - 0.01:
-                            self.distanceCNT[dist] += 1
-                            found = True
-                            break
-                    if found == False:
-                        self.distanceCNT[distance] = 0
 
 
 
@@ -256,11 +266,6 @@ class fcc(sc):
         self.cutoff = (maxLength) * a + 0.01
 
 
-        self.getDistanceDict()
-
-        self.total_potential()
-
-
     def LJ_potential(self, distance):
 
         sig_dist = sigma/distance
@@ -268,25 +273,70 @@ class fcc(sc):
         return 4*epsilon * (sig_dist**12 - sig_dist**6)
 
 
-    def total_potential(self):
+    def getDistanceMatrix(self):
+        '''
+        Apply PBC to get a distance matrix containing all pairs of atoms closer
+        than the cutoff.
 
-        forSum = [self.LJ_potential(x) * y for x,y in zip(self.distanceCNT.keys(),self.distanceCNT)]
+        Creates:
 
-        self.totalV = sum(forSum)
+        distanceMatrix - A list containing [atom 1 index, atom 2 index, distance, param string for paramDict]
+
+        '''
+
+        self.distanceMatrix = []
+
+        atomCount, __  = self.atoms.shape
+        for i in range(0,atomCount-1):
+            for j in range(i+1,atomCount):
+
+                #Apply PBC
+                fracCord, PBCcoord = self.PBC(self.atoms[i,:3],self.atoms[j,:3])
+
+                distance = math.sqrt(dotProduct(PBCcoord,PBCcoord))
+
+
+                if distance  <= self.cutoff:
+                    self.distanceMatrix.append((i,j,distance))
+
+
+    def getTotalPotential(self):
+        '''
+        Iterates through the distance matrix adding each pair of atoms contribution to the total potential energy of the lattice. This value is saved in the class instances attribute: latticePotential
+        '''
+
+        self.latticePotential = 0
+
+        for row in self.distanceMatrix:
+            self.latticePotential += self.LJ_potential(row[2])
 
 
 
 
 
 
-aValues = np.arange(425,437,0.5)/100
-potentials = []
+
+#Uncomment the below code to show the graph that gives the lattice constant
+#minimising potential energy
+'''
+aValues = np.arange(4.25,4.37,0.01)
+pots = []
 
 for x in aValues:
     Ne = fcc("Ne",dimensionOfLattice,x)
-    potentials.append(Ne.totalV)
+    Ne.getDistanceMatrix()
+    Ne.getTotalPotential()
+
+    pots.append(Ne.latticePotential)
 
 
 
-plt.plot(aValues,potentials)
+plt.plot(aValues,pots)
 plt.show()
+'''
+
+Ne = fcc("Ne",dimensionOfLattice,LatticeConstant)
+Ne.getDistanceMatrix()
+Ne.getTotalPotential()
+
+print("Given a Neon lattice of size {0} and Lattice Constant {1} Angstroms, the total potential is calculated to be {2} eV".format(dimensionOfLattice,LatticeConstant,Ne.latticePotential))

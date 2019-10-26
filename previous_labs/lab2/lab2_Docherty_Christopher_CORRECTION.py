@@ -256,7 +256,7 @@ class sc():
                 #Apply PBC
                 fracCord, PBCcoord = self.PBC(self.atoms[i,:],self.atoms[j,:])
 
-                distance = math.sqrt(dotProduct(PBCcoord,PBCcoord))
+                distance = np.linalg.norm(PBCcoord)
 
                 if distance  <= self.cutoff:
                     self.nearestN.append((i,j,distance))

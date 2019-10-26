@@ -10,45 +10,6 @@ import math
 dimensionOfLattice = (4,4,1) #Equivalent to coding n's
 LatticeConstant = 1
 
-#Correction: write own vector methods
-def dotProduct(v1,v2):
-    '''
-    Arguments:
-
-    v1,v2 - NumPy arrays of same size
-
-    Returns:
-
-    dp - result of dot product of v1 & v2
-    '''
-
-    dp = [x*y for x,y in zip(v1,v2)]
-    dp = sum(dp)
-
-    return dp
-
-
-def crossProduct(v1,v2):
-    '''
-    Arguments:
-
-    v1,v2 - NumPy arrays of shape (1,3)
-
-    Returns:
-
-    v3 - Vector resulting from cross product
-    '''
-
-
-    pos1 = v1[1]*v2[2] - v1[2]*v2[1]
-    pos2 = v1[2]*v2[0] - v1[0]*v2[2]
-    pos3 = v1[0]*v2[1] - v1[1]*v2[0]
-
-    v3 = np.array([pos1,pos2,pos3])
-
-
-    return v3
-
 
 
 
@@ -165,12 +126,12 @@ class sc():
         a1,a2,a3 = self.lVectors
 
         #Finding the volume as directed in the lecture notes
-        volume = dotProduct(a1,crossProduct(a2,a3))
+        volume = np.dot(a1,np.cross(a2,a3))
 
         #Calcutlating the reciprocal vectors using the volume
-        b1 = crossProduct(a2,a3)/volume
-        b2 = crossProduct(a3,a1)/volume
-        b3 = crossProduct(a1,a2)/volume
+        b1 = np.cross(a2,a3)/volume
+        b2 = np.cross(a3,a1)/volume
+        b3 = np.cross(a1,a2)/volume
 
 
         #As requested in the lab notes returning both the reciprocal
@@ -201,10 +162,9 @@ class sc():
         t = l2-l1
 
         #Calculating fractional coordinates in line with lecture notes
-        n1 = dotProduct(b1,t)%1
-        n2 = dotProduct(b2,t)%1
-        n3 = dotProduct(b3,t)%1
-
+        n1 = np.dot(b1,t)%1
+        n2 = np.dot(b2,t)%1
+        n3 = np.dot(b3,t)%1
 
 
         #A series of if statements to apply PBC i.e. move atoms
@@ -256,7 +216,7 @@ class sc():
                 #Apply PBC
                 fracCord, PBCcoord = self.PBC(self.atoms[i,:],self.atoms[j,:])
 
-                distance = math.sqrt(dotProduct(PBCcoord,PBCcoord))
+                distance = np.linalg.norm(PBCcoord)
 
                 if distance  <= self.cutoff:
                     self.nearestN.append((i,j,distance))
@@ -399,30 +359,9 @@ print("For a primitive face centred cubic cell with the chosen lattice constant,
 
 #Part 2 of the lab is the method PBC() for sc and associated subclasses
 
-l1 = np.array([0,2.5,3.8])
-l2 = np.array([3,2.6,0.4])
-print("CORRECTION: Given the coordinates {0} and {1} Applying PBC (from the latter to the former) will return: ".format(l1,l2))
-
-sc1 = sc("Si",(4,4,4),LatticeConstant)
-
-coords = sc1.PBC(l1,l2)
-print(l2-l1)
-
-print("Fractional coordinates of: {0} and PBC coordinates of {1} \n".format(coords[0],coords[1]))
-
-
-l1 = np.array([3,2.7,1.7])
-l2 = np.array([-2,0.4,-3.1])
-print("Given the coordinates {0} and {1} Applying PBC (from the latter to the former) will return: ".format(l1,l2))
-
-
-coords = sc1.PBC(l1,l2)
-print(l2-l1)
-
-print("Fractional coordinates of: {0} and PBC coordinates of {1} \n".format(coords[0],coords[1]))
-
-
-
+#If you need to test specific if PBC() works for specific instances
+#then it can be called as a class method. lattice and reciprocal
+#vectors can be specified as in part 1
 
 
 
@@ -433,9 +372,6 @@ print("Fractional coordinates of: {0} and PBC coordinates of {1} \n".format(coor
 #Part 4 of the lab is shown  below
 
 sc1 = sc("Si",(4,4,1),LatticeConstant)
-
-
-print("END OF CORRECTION \n")
 
 print("below is sc1's nearest neighbour list of expected size {} (1 lattice point * 16 unit cells * 4 NN)".format(len(sc1.nearestN)))
 print(sc1.nearestN)

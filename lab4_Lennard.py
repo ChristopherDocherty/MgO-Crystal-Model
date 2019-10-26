@@ -1,40 +1,19 @@
-#Coulomb-Buckingham potential for KF crystal
+#Lennard-Jones potential for Ne crystal
 
 import numpy as np
 import math
 import matplotlib.pyplot as plt
 
 #Hard coded parameters for crystals
-dimensionOfLattice = (3,3,3) #Equivalent to coding n's
-LatticeConstant = 4.2 #Measured in Angstroms
+dimensionOfLattice = (6,6,6) #Equivalent to coding n's
+LatticeConstant = 4.2
 
-#Coulomb Parameters
-#In SI units
-epsilon_not = 8.854 * 10**(-12)
-e_charge = 1.602 * 10**(-19)
+#Lennard Jones parameters
 
-#Vaccum perittivity in eV * A * e^(-2)
-ke = 1/(math.pi * 4 * epsilon_not) * e_charge * 10**10
+epsilon = 3.084 * 10**(-3) #eV
+sigma = 2.782 #Angstroms
 
 
-
-#Buckingham parameters
-
-#MgO
-
-paramDict = {"mm":(4870.0,0.2670,77.0),"pm":(926.69,0.29909,0)}
-q = 1.7**2
-
-
-#PUT THESE IN READ ME TABLE
-Amm = 4870.0 #eV
-rhomm =  0.2670 # Angstroms
-Cmm = 77.0 #Angstrom ^(-6) eV
-
-#Anion <-> Cation interactions
-Apm = 929.69 #eV
-rhopm = 0.29909  #Angstroms
-Cpm = 0 #Angstrom ^(6) eV
 
 
 def dotProduct(v1,v2):
@@ -77,7 +56,6 @@ def crossProduct(v1,v2):
 
 
 
-
 class sc():
     '''Creates an instance of a simple cubic crystal
 
@@ -97,16 +75,6 @@ class sc():
 
         self.atoms -- An np.array containing all the atoms in the crystal. Each row is an atom while the columns are x,y and z postion respectively
 
-        lVectors -- Lattice vectors for the given periodicity of unit cell
-
-        recipVectors -- Reciprocal vectors to the lattice vectors
-
-        cutoff -- Distance cutoff for nearest neighbour
-
-        nearestN -- a list containing tuples that have
-                    (index of 1st atom in self.atoms, index of 2nd atom, distance(1,2))
-                    where 1 and 2 refer to lattice points
-
 
         Constructor arguments:
 
@@ -116,18 +84,23 @@ class sc():
 
         a -- Lattice constant
 
-        init_pos -- Position of base atom which will be extended to
-        desired peiodicity
+        lVectors -- Lattice vectors for the given periodicity of unit cell
 
+        recipVectors -- Reciprocal vectors to the lattice vectors
 
+        cutoff -- Distance cutoff for nearest neighbour
+
+        nearestN -- a list containing tuples that have
+                    (index of 1st atom in self.atoms, index of 2nd atom, distance(1,2))
+                    where 1 and 2 refer to lattice points.
 
     '''
 
-    def __init__(self,element,dimensionOfLattice,a,init_pos):
+    def __init__(self,element,dimensionOfLattice,a):
 
         self.element = element
         self.structure = "Simple Cubic"
-        self.atoms = np.array(init_pos)
+        self.atoms = np.zeros((1,3))
         self.cutoff = a + 0.001
 
 
@@ -167,8 +140,8 @@ class sc():
         unitVectors = [np.array([[a,0,0]]),np.array([[0,a,0]]),np.array([[0,0,a]])]
 
 
-        for length, unitVector in zip(dimensionOfLattice,unitVectors):
 
+        for length, unitVector in zip(dimensionOfLattice,unitVectors):
             atomCount, __  = atoms.shape
 
             for i in range(0,length-1):
@@ -224,7 +197,6 @@ class sc():
         #Centering around l1
         t = l2-l1
 
-
         #Calculating fractional coordinates in line with lecturenotes
         n1 = dotProduct(b1,t)%1
         n2 = dotProduct(b2,t)%1
@@ -265,78 +237,51 @@ class sc():
 
 
 
+
+
+
+
+
 class fcc(sc):
     '''Creates an instance of a face centred cubic crystal
 
         Subclassed from sc and extends that class by adding the extra atoms in
-        a fcc unit cell
+        a bcc unit cell
 
     '''
 
-    def __init__(self,element,dimensionOfLattice,a,init_pos):
-        super().__init__(element,dimensionOfLattice,a,init_pos)
+    def __init__(self,element,dimensionOfLattice,a):
+        super().__init__(element,dimensionOfLattice,a)
         self.structure = "Face Centred Cubic"
 
-        init_pos = np.concatenate((init_pos,init_pos,init_pos),axis =1)
         #Hard coded fcc atoms
         extraAtoms =np.array( [[0,0.5*a,0.5*a]+[0.5*a,0,0.5*a]+[0.5*a,0.5*a,0]])
-        extraAtoms += init_pos
-
         extraAtoms = extraAtoms.reshape((-1,3))
         extraAtoms = super().extendUnitCell(extraAtoms,dimensionOfLattice,a)
         self.atoms = np.concatenate((self.atoms,extraAtoms),axis = 0)
 
-        #Add charge as 4th column
-        atomCount, __ = self.atoms.shape
-
-        if self.element == "Mg":
-            chargeCol = np.zeros((atomCount,1)) + 2
-        elif self.element == "O":
-            chargeCol = np.zeros((atomCount,1)) -2
-
-        self.atoms = np.concatenate((self.atoms,chargeCol),axis = 1)
-
 
         maxLength = max(dimensionOfLattice)
 
-        self.cutoff = a * maxLength
+        self.cutoff = (maxLength) * a + 0.01
 
 
+    def LJ_potential(self, distance):
 
+        sig_dist = sigma/distance
 
-    def Buckingham_potential(self,r,params):
-        '''
-        '''
-
-        A, rho, C = paramDict[params]
-
-        return A * math.exp(-r/rho) - C/(r**6)
-
-
-    def Coulomb_potential(self,r,params):
-        '''
-        '''
-
-        if params == "pm":
-            q_product = - q
-        else:
-            q_product = q
-
-
-        return (ke*q_product)/r
-
-
-    def __add__(self,otherCrystal):
-
-        self.atoms = np.concatenate((self.atoms,otherCrystal.atoms),axis = 0)
-
-        return None
-
-
+        return 4*epsilon * (sig_dist**12 - sig_dist**6)
 
 
     def getDistanceMatrix(self):
         '''
+        Apply PBC to get a distance matrix containing all pairs of atoms closer
+        than the cutoff.
+
+        Creates:
+
+        distanceMatrix - A list containing [atom 1 index, atom 2 index, distance, param string for paramDict]
+
         '''
 
         self.distanceMatrix = []
@@ -352,84 +297,46 @@ class fcc(sc):
 
 
                 if distance  <= self.cutoff:
-                    if self.atoms[i,3] == self.atoms[j,3]:
-                        if self.atoms[i,3] <0:
-                            parameters = "mm"
-                        else:
-                            parameters = "pp"
-
-                    else:
-                        parameters = "pm"
-
-                    self.distanceMatrix.append((i,j,distance,parameters))
+                    self.distanceMatrix.append((i,j,distance))
 
 
     def getTotalPotential(self):
+        '''
+        Iterates through the distance matrix adding each pair of atoms contribution to the total potential energy of the lattice. This value is saved in the class instances attribute: latticePotential
+        '''
 
         self.latticePotential = 0
 
         for row in self.distanceMatrix:
-
-            #Get Buckingham potential
-            if row[3] != "pp":
-                self.latticePotential += self.Buckingham_potential(row[2],row[3])
-
-
-            #Get Coulomn potential
-            self.latticePotential += self.Coulomb_potential(row[2],row[3])
+            self.latticePotential += self.LJ_potential(row[2])
 
 
 
-#Uncomment the below code to see the graph showing the lattice constant for
-#which potential is mnimised
 
-lConstants = np.arange(4,4.5,0.05)
+
+
+
+#Uncomment the below code to show the graph that gives the lattice constant
+#minimising potential energy
+'''
+aValues = np.arange(4.25,4.37,0.01)
 pots = []
 
-for i in lConstants:
-        Mgfcc = fcc("Mg",dimensionOfLattice,i,[[0,0,0]])
-        Ofcc = fcc("O",dimensionOfLattice,i,[[0,0,i/2]])
+for x in aValues:
+    Ne = fcc("Ne",dimensionOfLattice,x)
+    Ne.getDistanceMatrix()
+    Ne.getTotalPotential()
 
-        Mgfcc + Ofcc
-        MgOfcc = Mgfcc
-
-        MgOfcc.getDistanceMatrix()
-        MgOfcc.getTotalPotential()
-
-        pots.append(MgOfcc.latticePotential)
+    pots.append(Ne.latticePotential)
 
 
 
-print("The below graph shows the minimum occuring at 4.2 Angstroms as expected for MgO")
-plt.plot(lConstants,pots)
-plt.ylabel("Potential (eV)")
-plt.xlabel("Lattice Constant (Angstrom)")
-plt.title("Potential Minimising Lattice Constant")
+plt.plot(aValues,pots)
 plt.show()
-
-
-
-
-
-
-#To see test for converging average energy per per atom uncomment belwo section
 '''
-dims = [(x,x,x) for x in range(1,6)]
-pots = []
 
+Ne = fcc("Ne",dimensionOfLattice,LatticeConstant)
+Ne.getDistanceMatrix()
+Ne.getTotalPotential()
 
-for i in dims:
-        Mgfcc = fcc("Mg",i,LatticeConstant,[[0,0,0]])
-        Ofcc = fcc("O",i,LatticeConstant,[[0,0,LatticeConstant/2]])
-
-        Mgfcc + Ofcc
-        MgOfcc = Mgfcc
-
-        MgOfcc.getDistanceMatrix()
-        MgOfcc.getTotalPotential()
-
-        pots.append(MgOfcc.latticePotential/(i[1]**3))
-
-print(Below is the average energy per atom for cubes of size 1x1x1 to 5x5x5: \n)
-print(pots)
-'''
+print("Given a Neon lattice of size {0} and Lattice Constant {1} Angstroms, the total potential is calculated to be {2} eV".format(dimensionOfLattice,LatticeConstant,Ne.latticePotential))
