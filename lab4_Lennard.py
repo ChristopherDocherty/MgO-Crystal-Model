@@ -14,6 +14,15 @@ epsilon = 3.084 * 10**(-3) #eV
 sigma = 2.782 #Angstroms
 
 
+def secantMethod(derivative):
+
+    sigma = 10**(-7)
+
+
+
+
+
+
 
 
 def dotProduct(v1,v2):
@@ -310,6 +319,18 @@ class fcc(sc):
         for row in self.distanceMatrix:
             self.latticePotential += self.LJ_potential(row[2])
 
+
+    def perturb(self):
+
+        return
+
+    def LJ_steepestDescent(self):
+
+        return
+
+    def LJ_conjugateGradient(self):
+
+        return
 
 
 
