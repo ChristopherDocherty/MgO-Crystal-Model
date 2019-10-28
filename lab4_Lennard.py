@@ -3,22 +3,83 @@
 import numpy as np
 import math
 import matplotlib.pyplot as plt
+from collections import defaultdict
+from functools import partial
 
 #Hard coded parameters for crystals
-dimensionOfLattice = (6,6,6) #Equivalent to coding n's
+dimensionOfLattice = (2,2,2) #Equivalent to coding n's
 LatticeConstant = 4.2
 
 #Lennard Jones parameters
 
 epsilon = 3.084 * 10**(-3) #eV
 sigma = 2.782 #Angstroms
+sigma6 = sigma**6
+sigma12 = sigma**12
 
 
-def secantMethod(derivative):
+def writeToxyz(filename,crystal):
+    ''' Takes some crystal class instance and writes its data to a .xyz file
 
-    sigma = 10**(-7)
+    Arguments:
+
+    filename -- Desired filename, should end in .xyz
+
+    crystal -- instance of any crystal type (i.e. sc class or subclass of sc)
 
 
+    '''
+    crystalFile = open(filename,"wt")
+
+
+    atomCountFinal = crystal.atoms.shape[0]
+
+
+    crystalFile.write("{0}\n".format(atomCountFinal) )
+    crystalFile.write("This is a {0} {1} \n".format(dimensionOfLattice,crystal.structure))
+    for i in range(0,atomCountFinal):
+        crystalFile.write("{0:s} \t {1:0.9f} \t {2:0.9f} \t {3:0.9f} \n".format(crystal.element,crystal.atoms[i,0],crystal.atoms[i,1],crystal.atoms[i,2]))
+
+    return
+
+
+
+def steepestDescent(fprime, pos_vec, h = 10**(-7)):
+
+
+    dg = 1
+
+    while dg> h:
+        g = -fprime(pos_vec)
+        dg = math.sqrt(dotProduct(g,g))
+
+        a = aGet(pos_vec,fprime,g)
+
+        pos_vec += a * g
+        count+= 1
+
+    return pos_vec
+
+
+
+def aGet(pos_vec,fprime,g):
+
+    smolNum = 0.0001
+    numerator = dotProduct(fprime(pos_vec),g)
+    denomenator = dotProduct(fprime(pos_vec + smolNum * g)-fprime(pos_vec),g)
+    #print(fprime(pos_vec + smolNum * g), fprime(pos_vec))
+    return -smolNum * numerator / denomenator
+
+
+def LJ_derivative(pos_vec):
+
+    squareDist = dotProduct(pos_vec,pos_vec)
+
+    term1 = 2 * sigma12 / squareDist**7
+    term2 = sigma6 / squareDist**4
+
+
+    return -24*epsilon * (term1 - term2) * pos_vec
 
 
 
@@ -246,11 +307,6 @@ class sc():
 
 
 
-
-
-
-
-
 class fcc(sc):
     '''Creates an instance of a face centred cubic crystal
 
@@ -272,7 +328,7 @@ class fcc(sc):
 
         maxLength = max(dimensionOfLattice)
 
-        self.cutoff = (maxLength) * a + 0.01
+        self.cutoff = (maxLength) * a/2 + 0.1
 
 
     def LJ_potential(self, distance):
@@ -296,17 +352,21 @@ class fcc(sc):
         self.distanceMatrix = []
 
         atomCount, __  = self.atoms.shape
-        for i in range(0,atomCount-1):
-            for j in range(i+1,atomCount):
+        #Changed to count every atom
+        for i in range(0,atomCount):
+            for j in range(0,atomCount):
+                #Can optimise by only doing once through and then appending the
+                #a list comprehension with elements 1,2 reversed
+                if j != i:
+                    #Apply PBC
+                    fracCord, PBCcoord = self.PBC(self.atoms[i,:3],self.atoms[j,:3])
 
-                #Apply PBC
-                fracCord, PBCcoord = self.PBC(self.atoms[i,:3],self.atoms[j,:3])
-
-                distance = math.sqrt(dotProduct(PBCcoord,PBCcoord))
+                    distance = math.sqrt(dotProduct(PBCcoord,PBCcoord))
 
 
-                if distance  <= self.cutoff:
-                    self.distanceMatrix.append((i,j,distance))
+
+                    if distance  <= self.cutoff:
+                        self.distanceMatrix.append((i,j,distance,PBCcoord))
 
 
     def getTotalPotential(self):
@@ -320,44 +380,64 @@ class fcc(sc):
             self.latticePotential += self.LJ_potential(row[2])
 
 
-    def perturb(self):
+
+
+
+    def steepestDescent(self, fprime, h = 10**(-3)):
+        '''
+        To avoid unnecessary calculations probably gonna remove element from distancematrix list
+        '''
+
+
+        #dg = 1
+
+
+        for i in range(0,50):
+            derivSumHolder = np.zeros(self.atoms.shape)
+            self.getDistanceMatrix
+
+            for j, row in enumerate(self.distanceMatrix):
+                indexForMove = 0
+                if row[2] < 4:
+
+
+                    pos_vec = row[3]
+
+                    #print(pos_vec)
+
+                    g = -fprime(pos_vec)
+                    #dg = math.sqrt(dotProduct(g,g))
+
+                    a = aGet(pos_vec,fprime,g)
+
+                    #print("pos_vec = {0}   g = {1}   a = {2}".format(pos_vec,g,a))
+                    derivSumHolder[row[indexForMove]] += 0.5*a * g
+                    #if row[0] == 0:
+                    #    print(a*g)
+
+
+
+            #print(derivSumHolder[0:5,:])
+            #print(derivSumHolder)
+            #update step
+            self.atoms += derivSumHolder
+
+
+
 
         return
 
-    def LJ_steepestDescent(self):
 
-        return
-
-    def LJ_conjugateGradient(self):
-
-        return
-
-
-
-
-
-
-#Uncomment the below code to show the graph that gives the lattice constant
-#minimising potential energy
-'''
-aValues = np.arange(4.25,4.37,0.01)
-pots = []
-
-for x in aValues:
-    Ne = fcc("Ne",dimensionOfLattice,x)
-    Ne.getDistanceMatrix()
-    Ne.getTotalPotential()
-
-    pots.append(Ne.latticePotential)
-
-
-
-plt.plot(aValues,pots)
-plt.show()
-'''
 
 Ne = fcc("Ne",dimensionOfLattice,LatticeConstant)
-Ne.getDistanceMatrix()
-Ne.getTotalPotential()
 
-print("Given a Neon lattice of size {0} and Lattice Constant {1} Angstroms, the total potential is calculated to be {2} eV".format(dimensionOfLattice,LatticeConstant,Ne.latticePotential))
+
+
+#print(Ne.distanceMatrix)
+Ne.atoms[0,2] += 0.01
+Ne.getDistanceMatrix()
+#print(Ne.atoms[0:5,:])
+writeToxyz("NeBefore.xyz",Ne)
+Ne.steepestDescent(LJ_derivative)
+writeToxyz("NeAfter.xyz",Ne)
+#print(Ne.atoms[0:5,:])

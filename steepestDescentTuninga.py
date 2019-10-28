@@ -70,7 +70,6 @@ def steepestDescent(g, f, pos_vec, a=0.1, h = 10**(-8)):
         dg =  math.sqrt(dotProduct(delg,delg))
         b = a/dg
 
-        delg = f(pos_vec)
 
 
         g1 = g(pos_vec)
