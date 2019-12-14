@@ -44,41 +44,23 @@ def writeToxyz(filename,crystal):
 
 
 
-def steepestDescent(fprime, pos_vec, h = 10**(-7)):
 
 
-    dg = 1
+def lineMinimisation(g,f_displaced,smolNum):
 
-    while dg> h:
-        g = -fprime(pos_vec)
-        dg = math.sqrt(dotProduct(g,g))
-
-        a = aGet(pos_vec,fprime,g)
-
-        pos_vec += a * g
-        count+= 1
-
-    return pos_vec
-
-
-
-def aGet(pos_vec,fprime,g):
-
-    smolNum = 0.0001
-    numerator = dotProduct(fprime(pos_vec),g)
-    denomenator = dotProduct(fprime(pos_vec + smolNum * g)-fprime(pos_vec),g)
-    #print(fprime(pos_vec + smolNum * g), fprime(pos_vec))
+    numerator = dotProduct(-g,g)
+    denomenator = dotProduct(f_displaced + g,g)
     return -smolNum * numerator / denomenator
 
 
-def LJ_derivative(dist_PBC,dist_not_PBC,pos_vec):
+def LJ_derivative(dist_PBC,dist_not_PBC,pos_vec_not_PBC):
 
     
     term1 = 2 * sigma12 / dist_PBC**13 
     term2 = sigma6 / dist_PBC**7 
 
 
-    return 24*epsilon * (term1 - term2) / math.sqrt(dist_not_PBC) * pos_vec
+    return 24*epsilon * (term1 - term2) / math.sqrt(dist_not_PBC) * pos_vec_not_PBC
 
 
 
@@ -383,15 +365,39 @@ class fcc(sc):
 
 
 
-    def steepestDescent(self, fprime, h = 10**(-3)):
+    def steepestDescent(self, fprime, h = 10**(-3), smolNum= 0.0001):
         '''
         To avoid unnecessary calculations probably gonna remove element from distancematrix list
         '''
+        for i in range(0,10):
+            #Givesd correct shape for gradient
+            g = np.zeros((self.atoms.shape))
 
-        term1 = 2 * sigma12 / ()
+            self.getDistanceMatrix()
 
+            #Get negative of gradient
+            for row in self.distanceMatrix:
+                result = LJ_derivative(row[2],row[4],row[5]) / 2
+                #Negative of gradient applied here
+                g[row[0]] -= result
+                g[row[1]] += result
 
-        return
+            #Copy atoms before moving them for line minimisation
+            temporary_copy = np.copy(self.atoms)
+            self.atoms += sigma * g
+            self.getDistanceMatrix()
+
+            #Get f'(x + sigma*g)
+            f_displaced = np.zeros((self.atoms.shape))
+            for row in self.distanceMatrix:
+                result = LJ_derivative(row[2],row[4],row[5]) / 2
+                f_displaced[row[0]] += result
+                f_displaced[row[1]] -= result
+
+            alpha = lineMinimisation(g,f_displaced,smolNum)
+
+            self.atoms = temporary_copy + alpha * g
+
 
 
 
@@ -401,11 +407,13 @@ Ne = fcc("Ne",dimensionOfLattice,LatticeConstant)
 
 #print(Ne.distanceMatrix)
 Ne.atoms[0,2] += 0.01
-Ne.getDistanceMatrix()
 
-print("oiiii")
-#print(Ne.atoms[0:5,:])
-#writeToxyz("NeBefore.xyz",Ne)
-#Ne.steepestDescent(LJ_derivative)
-#writeToxyz("NeAfter.xyz",Ne)
-#print(Ne.atoms[0:5,:])
+
+
+
+
+print(Ne.atoms[0:5,:])
+writeToxyz("NeBefore.xyz",Ne)
+Ne.steepestDescent(LJ_derivative)
+writeToxyz("NeAfter.xyz",Ne)
+print(Ne.atoms[0:5,:])
