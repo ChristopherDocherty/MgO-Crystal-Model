@@ -71,15 +71,14 @@ def aGet(pos_vec,fprime,g):
     return -smolNum * numerator / denomenator
 
 
-def LJ_derivative(pos_vec):
+def LJ_derivative(dist_PBC,dist_not_PBC,pos_vec):
 
-    squareDist = dotProduct(pos_vec,pos_vec)
+    
+    term1 = 2 * sigma12 / dist_PBC**13 
+    term2 = sigma6 / dist_PBC**7 
 
-    term1 = 2 * sigma12 / squareDist**7
-    term2 = sigma6 / squareDist**4
 
-
-    return -24*epsilon * (term1 - term2) * pos_vec
+    return 24*epsilon * (term1 - term2) / math.sqrt(dist_not_PBC) * pos_vec
 
 
 
@@ -358,15 +357,16 @@ class fcc(sc):
                 #Can optimise by only doing once through and then appending the
                 #a list comprehension with elements 1,2 reversed
                 if j != i:
+
                     #Apply PBC
                     fracCord, PBCcoord = self.PBC(self.atoms[i,:3],self.atoms[j,:3])
 
-                    distance = math.sqrt(dotProduct(PBCcoord,PBCcoord))
+                    PBC_distance = math.sqrt(dotProduct(PBCcoord,PBCcoord))
 
-
-
-                    if distance  <= self.cutoff:
-                        self.distanceMatrix.append((i,j,distance,PBCcoord))
+                    if PBC_distance  <= self.cutoff:                
+                        non_PBCcoord = self.atoms[j,:3] - self.atoms[i,:3]
+                        norm_distance = math.sqrt(dotProduct(non_PBCcoord,non_PBCcoord))
+                        self.distanceMatrix.append((i,j,PBC_distance,PBCcoord,norm_distance,non_PBCcoord))
 
 
     def getTotalPotential(self):
@@ -388,41 +388,7 @@ class fcc(sc):
         To avoid unnecessary calculations probably gonna remove element from distancematrix list
         '''
 
-
-        #dg = 1
-
-
-        for i in range(0,50):
-            derivSumHolder = np.zeros(self.atoms.shape)
-            self.getDistanceMatrix
-
-            for j, row in enumerate(self.distanceMatrix):
-                indexForMove = 0
-                if row[2] < 4:
-
-
-                    pos_vec = row[3]
-
-                    #print(pos_vec)
-
-                    g = -fprime(pos_vec)
-                    #dg = math.sqrt(dotProduct(g,g))
-
-                    a = aGet(pos_vec,fprime,g)
-
-                    #print("pos_vec = {0}   g = {1}   a = {2}".format(pos_vec,g,a))
-                    derivSumHolder[row[indexForMove]] += 0.5*a * g
-                    #if row[0] == 0:
-                    #    print(a*g)
-
-
-
-            #print(derivSumHolder[0:5,:])
-            #print(derivSumHolder)
-            #update step
-            self.atoms += derivSumHolder
-
-
+        term1 = 2 * sigma12 / ()
 
 
         return
@@ -436,8 +402,10 @@ Ne = fcc("Ne",dimensionOfLattice,LatticeConstant)
 #print(Ne.distanceMatrix)
 Ne.atoms[0,2] += 0.01
 Ne.getDistanceMatrix()
+
+print("oiiii")
 #print(Ne.atoms[0:5,:])
-writeToxyz("NeBefore.xyz",Ne)
-Ne.steepestDescent(LJ_derivative)
-writeToxyz("NeAfter.xyz",Ne)
+#writeToxyz("NeBefore.xyz",Ne)
+#Ne.steepestDescent(LJ_derivative)
+#writeToxyz("NeAfter.xyz",Ne)
 #print(Ne.atoms[0:5,:])

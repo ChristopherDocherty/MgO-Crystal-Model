@@ -77,7 +77,7 @@ def steepestDescent(fprime, pos_vec, h = 10**(-7)):
     return pos_vec
 
 
-x = np.array([2.0,0.0,0.0])
+x = np.array([1.0,1.0,1.0])
 
 
 

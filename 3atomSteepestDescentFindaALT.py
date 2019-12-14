@@ -79,6 +79,35 @@ def psuedoPBC(x1,x2):
 
 
 
+def getTotalPotential(distanceMatrix):
+        '''
+        Iterates through the distance matrix adding each pair of atoms contribution to the total potential energy of the lattice. This value is saved in the class instances attribute: latticePotential
+        '''
+
+        latticePotential = 0
+
+        for row in distanceMatrix:
+            latticePotential += LJ_potential(row[3])
+
+
+def getDistanceMatrix(x):
+        '''
+        '''
+
+        distanceMatrix = []
+
+        atomCount, __  = x.shape
+        for i in range(0,atomCount-1):
+            for j in range(i+1,atomCount):
+
+                #As this is the non pbc version, just take difference
+                pos_vec = x[j,:] - x[i,:]
+
+                distance = math.sqrt(dotProduct(pos_vec,pos_vec))
+
+
+                if distance  <= self.cutoff:
+                    distanceMatrix.append((i,j,pos_vec,distance))
 
 
 
@@ -88,38 +117,40 @@ def steepestDescent(g, f, x, a=0.1, h = 10**(-8)):
     #Get number of atoms for loops
     atomCount, __ =  x.shape
 
-    #Dictionary to hold potential for each pair interaction
-    #Keys will be str(j)+str(k) with values being the potential
-    pot_dict = {}
+    
 
     #Initialise b_array to have all zeros so b's can be added
     b_array = np.zeros((x.shape))
 
-    for j in range(0,atomCount-1):
-        for k in range(j,atomCount):
-
-            #position vector of j w.r.t. k
-            pos_vec = x[k,:] - x[j,:]
-
-            #Initial potential energy
-            pot_dict{str(j)+str(k)} = g(pos_vec)
-
-            #gradient of current positions
-            delg = f(pos_vec)
+    #Get distance matrix for total V and pos_vec's
+    distMat = getDistanceMatrix(x)
+    g0 = getTotalPotential(distMat)
 
 
-            #gauge of magnitude of gradients
-            dg = math.sqrt(dotProduct(delg,delg))
 
-            #scaling a for (i think) optimisation purposes
-            b = a/dg 
+    for row in distMat:
 
-            #Add to gradients np.array for addition to atoms array
-            b_array[j] -= 0.5 * b*delg
-            b_array[k] += 0.5 * b*delg
+        #Unpacking atom indices and pos_vec from the distance matrix
+        j,k,pos_vec = row[0:3]
+        
+        #gradient of current positions
+        delg = f(pos_vec)
+        
+        #gauge of magnitude of gradients
+        dg = math.sqrt(dotProduct(delg,delg))
+        
+        #scaling a for (i think) optimisation purposes
+        b = a/dg 
+        
+        #Add to gradients np.array for addition to atoms array
+        b_array[k] -= 0.5 * b*delg
+        b_array[j] += 0.5 * b*delg
+
+
+
 
     count = 0
-    for i in range(0,1000):
+    for i in range(0,1):
         #Update all the atom's positions to reduce potential (hopefully)
         x += b_array
         for j in range(0,atomCount-1):
@@ -149,7 +180,7 @@ def steepestDescent(g, f, x, a=0.1, h = 10**(-8)):
 
                 #Calculate current potential to see if step size is too large or not
                 g1 = g(pos_vec)
-                if g1 > g0:
+                if g1 > pot_dict[str(j)+str(k)]:
                     #If potential actually increased then step size is too large
                     a /= 2
                 else:
