@@ -8,7 +8,7 @@ from functools import partial
 import random
 
 #Hard coded parameters for crystals
-dimensionOfLattice = (2,2,2) #Equivalent to coding n's
+dimensionOfLattice = (3,3,3) #Equivalent to coding n's
 LatticeConstant = 4.2
 
 #Lennard Jones parameters
@@ -366,42 +366,63 @@ class fcc(sc):
 
 
 
-    def steepestDescent(self, fprime, h = 10**(-3), smolNum= 1):
+    def conjugate_gradient(self, fprime, h = 10**(-3), smolNum= 0.01):
         '''
         To avoid unnecessary calculations probably gonna remove element from distancematrix list
         '''
-        for i in range(0,100):
-            #Givesd correct shape for gradient
-            g = np.zeros((self.atoms.shape))
+        #Givesd correct shape for gradient
+        g = np.zeros((self.atoms.shape))
 
+        self.getDistanceMatrix()
+
+        #Get negative of gradient
+        for row in self.distanceMatrix:
+            result = LJ_derivative(row[2],row[3]) / 2
+            #Negative of gradient applied here
+            g[row[0]] -= result
+            g[row[1]] += result
+
+        h = g
+
+        alpha = 10
+        while alpha > 0.0099:
+
+            #Copy atoms before moving them for line minimisation
+            temporary_copy = np.copy(self.atoms)
+            self.atoms += smolNum * h
+            #Get f'(x + sigma*h)
             self.getDistanceMatrix()
+            f_displaced = np.zeros((self.atoms.shape))
+            for row in self.distanceMatrix:
+                result = LJ_derivative(row[2],row[3]) / 2
+                f_displaced[row[0]] += result
+                f_displaced[row[1]] -= result
+            alpha =  lineMinimisation(h,f_displaced,smolNum)
 
+            self.atoms = temporary_copy + alpha * h 
+
+
+            g_prev = g
+            g = np.zeros((g.shape))
             #Get negative of gradient
+            self.getDistanceMatrix()
             for row in self.distanceMatrix:
                 result = LJ_derivative(row[2],row[3]) / 2
                 #Negative of gradient applied here
                 g[row[0]] -= result
                 g[row[1]] += result
 
+            gam_numer = np.sum(np.multiply(g,g))
+            gam_denom = np.sum(np.multiply(g_prev,g_prev))
 
+            gam = gam_numer / gam_denom
+            gam = max(gam,0)
 
-            
-            #Copy atoms before moving them for line minimisation
-            temporary_copy = np.copy(self.atoms)
-            self.atoms += sigma * g
-            self.getDistanceMatrix()
-
-            #Get f'(x + sigma*g)
-            f_displaced = np.zeros((self.atoms.shape))
-            for row in self.distanceMatrix:
-                result = LJ_derivative(row[2],row[3]) / 2
-                f_displaced[row[0]] += result
-                f_displaced[row[1]] -= result
-
-            alpha =  lineMinimisation(g,f_displaced,smolNum)
-
+            h = g + gam * h
             print(alpha)
-            self.atoms = temporary_copy + alpha * g
+
+
+           
             
 
 
@@ -427,5 +448,5 @@ for i in range(0,150):
 
 
 writeToxyz("NeBefore.xyz",Ne)
-Ne.steepestDescent(LJ_derivative)
+Ne.conjugate_gradient(LJ_derivative)
 writeToxyz("NeAfter.xyz",Ne)
