@@ -54,14 +54,14 @@ def lineMinimisation(g,f_displaced,smolNum):
     return -smolNum * numerator / denomenator
 
 
-def LJ_derivative(dist_PBC,dist_not_PBC,pos_vec_not_PBC):
+def LJ_derivative(dist_PBC,pos_vec):
 
     
-    term1 = 2 * sigma12 / dist_PBC**13 
-    term2 = sigma6 / dist_PBC**7 
+    term1 = 2 * sigma12 / dist_PBC**14 
+    term2 = sigma6 / dist_PBC**8 
 
 
-    return 24*epsilon * (term1 - term2) / math.sqrt(dist_PBC) * pos_vec_not_PBC
+    return 24*epsilon * (term1 - term2) * pos_vec
 
 
 
@@ -349,7 +349,7 @@ class fcc(sc):
                     if PBC_distance  <= self.cutoff:                
                         non_PBCcoord = self.atoms[j,:3] - self.atoms[i,:3]
                         norm_distance = math.sqrt(dotProduct(non_PBCcoord,non_PBCcoord))
-                        self.distanceMatrix.append((i,j,PBC_distance,PBCcoord,norm_distance,non_PBCcoord))
+                        self.distanceMatrix.append((i,j,PBC_distance,PBCcoord))
 
 
     def getTotalPotential(self):
@@ -366,11 +366,11 @@ class fcc(sc):
 
 
 
-    def steepestDescent(self, fprime, h = 10**(-3), smolNum= 0.01):
+    def steepestDescent(self, fprime, h = 10**(-3), smolNum= 1):
         '''
         To avoid unnecessary calculations probably gonna remove element from distancematrix list
         '''
-        for i in range(0,1):
+        for i in range(0,100):
             #Givesd correct shape for gradient
             g = np.zeros((self.atoms.shape))
 
@@ -378,7 +378,7 @@ class fcc(sc):
 
             #Get negative of gradient
             for row in self.distanceMatrix:
-                result = LJ_derivative(row[2],row[4],row[3]) / 2
+                result = LJ_derivative(row[2],row[3]) / 2
                 #Negative of gradient applied here
                 g[row[0]] -= result
                 g[row[1]] += result
@@ -394,12 +394,13 @@ class fcc(sc):
             #Get f'(x + sigma*g)
             f_displaced = np.zeros((self.atoms.shape))
             for row in self.distanceMatrix:
-                result = LJ_derivative(row[2],row[4],row[5]) / 2
+                result = LJ_derivative(row[2],row[3]) / 2
                 f_displaced[row[0]] += result
                 f_displaced[row[1]] -= result
 
-            alpha =  2 * lineMinimisation(g,f_displaced,smolNum)
+            alpha =  lineMinimisation(g,f_displaced,smolNum)
 
+            print(alpha)
             self.atoms = temporary_copy + alpha * g
             
 
@@ -415,20 +416,16 @@ Ne = fcc("Ne",dimensionOfLattice,LatticeConstant)
 
 
 
-#writeToxyz("NeBeforeBef.xyz",Ne)
+writeToxyz("NeBeforeBef.xyz",Ne)
 
-'''
-for i in range(0,20):
+#Apply random perturbations to atoms
+for i in range(0,150):
     RNG_atom = random.randint(0,Ne.atoms.shape[0]-1)
     RNG_coord = random.randint(0,2)
     temp = random.random() * 0.25
     Ne.atoms[RNG_atom,RNG_coord] += temp
-'''
 
-Ne.getDistanceMatrix()
 
-print("check 1 2 1 2 3")
-#writeToxyz("NeBefore.xyz",Ne)
+writeToxyz("NeBefore.xyz",Ne)
 Ne.steepestDescent(LJ_derivative)
-#writeToxyz("NeAfter.xyz",Ne)
-#print(Ne.atoms[0:5,:])
+writeToxyz("NeAfter.xyz",Ne)
