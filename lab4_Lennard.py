@@ -5,6 +5,7 @@ import math
 import matplotlib.pyplot as plt
 from collections import defaultdict
 from functools import partial
+import random
 
 #Hard coded parameters for crystals
 dimensionOfLattice = (2,2,2) #Equivalent to coding n's
@@ -48,8 +49,8 @@ def writeToxyz(filename,crystal):
 
 def lineMinimisation(g,f_displaced,smolNum):
 
-    numerator = dotProduct(-g,g)
-    denomenator = dotProduct(f_displaced + g,g)
+    numerator = np.sum(np.multiply(-g,g))
+    denomenator = np.sum(np.multiply(f_displaced + g,g))
     return -smolNum * numerator / denomenator
 
 
@@ -60,7 +61,7 @@ def LJ_derivative(dist_PBC,dist_not_PBC,pos_vec_not_PBC):
     term2 = sigma6 / dist_PBC**7 
 
 
-    return 24*epsilon * (term1 - term2) / math.sqrt(dist_not_PBC) * pos_vec_not_PBC
+    return 24*epsilon * (term1 - term2) / math.sqrt(dist_PBC) * pos_vec_not_PBC
 
 
 
@@ -152,7 +153,7 @@ class sc():
         self.element = element
         self.structure = "Simple Cubic"
         self.atoms = np.zeros((1,3))
-        self.cutoff = a + 0.001
+        self.cutoff =  a + 0.001
 
 
         extraAtoms = self.extendUnitCell(self.atoms,dimensionOfLattice,a)
@@ -309,7 +310,7 @@ class fcc(sc):
 
         maxLength = max(dimensionOfLattice)
 
-        self.cutoff = (maxLength) * a/2 + 0.1
+        self.cutoff = a/math.sqrt(2) +0.001
 
 
     def LJ_potential(self, distance):
@@ -365,11 +366,11 @@ class fcc(sc):
 
 
 
-    def steepestDescent(self, fprime, h = 10**(-3), smolNum= 0.0001):
+    def steepestDescent(self, fprime, h = 10**(-3), smolNum= 0.01):
         '''
         To avoid unnecessary calculations probably gonna remove element from distancematrix list
         '''
-        for i in range(0,10):
+        for i in range(0,1):
             #Givesd correct shape for gradient
             g = np.zeros((self.atoms.shape))
 
@@ -377,11 +378,14 @@ class fcc(sc):
 
             #Get negative of gradient
             for row in self.distanceMatrix:
-                result = LJ_derivative(row[2],row[4],row[5]) / 2
+                result = LJ_derivative(row[2],row[4],row[3]) / 2
                 #Negative of gradient applied here
                 g[row[0]] -= result
                 g[row[1]] += result
 
+
+
+            
             #Copy atoms before moving them for line minimisation
             temporary_copy = np.copy(self.atoms)
             self.atoms += sigma * g
@@ -394,9 +398,10 @@ class fcc(sc):
                 f_displaced[row[0]] += result
                 f_displaced[row[1]] -= result
 
-            alpha = lineMinimisation(g,f_displaced,smolNum)
+            alpha =  2 * lineMinimisation(g,f_displaced,smolNum)
 
             self.atoms = temporary_copy + alpha * g
+            
 
 
 
@@ -406,14 +411,24 @@ Ne = fcc("Ne",dimensionOfLattice,LatticeConstant)
 
 
 #print(Ne.distanceMatrix)
-Ne.atoms[0,2] += 0.01
 
 
 
 
+#writeToxyz("NeBeforeBef.xyz",Ne)
 
-print(Ne.atoms[0:5,:])
-writeToxyz("NeBefore.xyz",Ne)
+'''
+for i in range(0,20):
+    RNG_atom = random.randint(0,Ne.atoms.shape[0]-1)
+    RNG_coord = random.randint(0,2)
+    temp = random.random() * 0.25
+    Ne.atoms[RNG_atom,RNG_coord] += temp
+'''
+
+Ne.getDistanceMatrix()
+
+print("check 1 2 1 2 3")
+#writeToxyz("NeBefore.xyz",Ne)
 Ne.steepestDescent(LJ_derivative)
-writeToxyz("NeAfter.xyz",Ne)
-print(Ne.atoms[0:5,:])
+#writeToxyz("NeAfter.xyz",Ne)
+#print(Ne.atoms[0:5,:])

@@ -7,7 +7,7 @@ import math
 
 
 #Hard coded parameters for crystals
-dimensionOfLattice = (4,4,1) #Equivalent to coding n's
+dimensionOfLattice = (2,2,2) #Equivalent to coding n's
 LatticeConstant = 1
 
 #Correction: write own vector methods
@@ -432,22 +432,22 @@ print("Fractional coordinates of: {0} and PBC coordinates of {1} \n".format(coor
 
 #Part 4 of the lab is shown  below
 
-sc1 = sc("Si",(4,4,1),LatticeConstant)
-
-
-print("END OF CORRECTION \n")
-
-print("below is sc1's nearest neighbour list of expected size {} (1 lattice point * 16 unit cells * 4 NN)".format(len(sc1.nearestN)))
-print(sc1.nearestN)
-print("\n")
-
-
-
-bcc1 = bcc("Si",(3,3,3),LatticeConstant)
-
-print("below is bcc1's nearest neighbour list of expected size {} (2 lattice point * 27 unit cells * 8 NN - as this is a 2d lattice like the powerpoint)".format(len(bcc1.nearestN)))
-print(bcc1.nearestN)
-print("\n")
+#sc1 = sc("Si",(4,4,1),LatticeConstant)
+#
+#
+#print("END OF CORRECTION \n")
+#
+#print("below is sc1's nearest neighbour list of expected size {} (1 lattice point * 16 unit cells * 4 NN)".format(len(sc1.nearestN)))
+#print(sc1.nearestN)
+#print("\n")
+#
+#
+#
+#bcc1 = bcc("Si",(3,3,3),LatticeConstant)
+#
+#print("below is bcc1's nearest neighbour list of expected size {} (2 lattice point * 27 unit cells * 8 NN - as this is a 2d lattice like the powerpoint)".format(len(bcc1.nearestN)))
+#print(bcc1.nearestN)
+#print("\n")
 
 
 fcc1 = fcc("Si",(3,3,3),LatticeConstant)

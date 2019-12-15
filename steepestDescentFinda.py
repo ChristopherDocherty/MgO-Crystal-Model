@@ -69,7 +69,7 @@ def steepestDescent(fprime, pos_vec, h = 10**(-7)):
         dg = math.sqrt(dotProduct(g,g))
 
         a = aGet(pos_vec,fprime,g)
-        print("pos_vec = {0}   g = {1}   a = {2} hmm {3}".format(pos_vec,g,a,g*a))
+        #print("pos_vec = {0}   g = {1}   a = {2} hmm {3}".format(pos_vec,g,a,g*a))
         pos_vec += a * g
         count+= 1
 
@@ -84,5 +84,5 @@ x = np.array([1.0,1.0,1.0])
 result =steepestDescent(LJ_derivative,x)
 
 print(2**(1/6) * sigma)
-#print(result)
-#print(math.sqrt(dotProduct(result,result)))
+print(result)
+print(math.sqrt(dotProduct(result,result)))
