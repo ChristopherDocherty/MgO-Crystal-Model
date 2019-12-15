@@ -1,22 +1,30 @@
-#Lennard-Jones potential for Ne crystal
+#Coulomb-Buckingham potential for KF crystal
 
 import numpy as np
 import math
 import matplotlib.pyplot as plt
-from collections import defaultdict
-from functools import partial
 import random
 
 #Hard coded parameters for crystals
 dimensionOfLattice = (3,3,3) #Equivalent to coding n's
-LatticeConstant = 4.2
+LatticeConstant = 4.2 #Measured in Angstroms
 
-#Lennard Jones parameters
+#Coulomb Parameters
+#In SI units
+epsilon_not = 8.854 * 10**(-12)
+e_charge = 1.602 * 10**(-19)
 
-epsilon = 3.084 * 10**(-3) #eV
-sigma = 2.782 #Angstroms
-sigma6 = sigma**6
-sigma12 = sigma**12
+#Vaccum perittivity in eV * A * e^(-2)
+ke = 1/(math.pi * 4 * epsilon_not) * e_charge * 10**10
+#Effecive charge used
+q = 1.7**2
+
+
+
+#Buckingham parameters for MgO
+#tuple contatins (A,rho,C) for anion <-> anion and cation <-> anion
+#interactions
+paramDict = {"mm":(4870.0,0.2670,77.0),"pm":(926.69,0.29909,0)}
 
 
 def writeToxyz(filename,crystal):
@@ -45,8 +53,6 @@ def writeToxyz(filename,crystal):
 
 
 
-
-
 def lineMinimisation(g,f_displaced,smolNum):
 
     numerator = np.sum(np.multiply(-g,g))
@@ -54,16 +60,62 @@ def lineMinimisation(g,f_displaced,smolNum):
     return -smolNum * numerator / denomenator
 
 
-def LJ_derivative(dist_PBC,pos_vec):
+def Coulomb_Derivative(r,params,pos_vec):
 
-    
-    term1 = 2 * sigma12 / dist_PBC**14 
-    term2 = sigma6 / dist_PBC**8 
+    if params == "pm":
+        q_product = - q
+    else:
+        q_product = q
+
+    return ( (ke*q_product)/r**3 ) * pos_vec 
+
+def Coulomb_potential(r,params):
+        '''
+        Calculates Coulomb potential of two atoms/ions
+
+        Arguments:
+
+        r - Seperation of the two atoms in Angstrom
+
+        params - String containing "pm" if the potential is for cation <->
+        anion and containgin "mm" if anion <-> anion
+
+        Returns: Potential energy in eV
+        '''
+
+        if params == "pm":
+            q_product = - q
+        else:
+            q_product = q
 
 
-    return 24*epsilon * (term1 - term2) * pos_vec
+        return (ke*q_product)/r
 
 
+def Buckingham_derivative(r,params,pos_vec):
+
+    A, rho, C = paramDict[params]
+
+    return ( A/(rho*r) * math.exp(-r/rho) - C/(r**8) ) * pos_vec
+
+
+def Buckingham_potential(r,params):
+    '''
+    Calculates Buckingham potential of two atoms/ions
+
+    Arguments:
+
+    r - Seperation of the two atoms in Angstrom
+
+    params - String containing "pm" if the potential is for cation <->
+    anion and containgin "mm" if anion <-> anion
+
+    Returns: Potential energy in eV
+    '''
+
+    A, rho, C = paramDict[params]
+
+    return A * math.exp(-r/rho) - C/(r**6)
 
 
 
@@ -108,6 +160,10 @@ def crossProduct(v1,v2):
 
 
 
+
+
+
+
 class sc():
     '''Creates an instance of a simple cubic crystal
 
@@ -127,6 +183,16 @@ class sc():
 
         self.atoms -- An np.array containing all the atoms in the crystal. Each row is an atom while the columns are x,y and z postion respectively
 
+        lVectors -- Lattice vectors for the given periodicity of unit cell
+
+        recipVectors -- Reciprocal vectors to the lattice vectors
+
+        cutoff -- Distance cutoff for nearest neighbour
+
+        nearestN -- a list containing tuples that have
+                    (index of 1st atom in self.atoms, index of 2nd atom, distance(1,2))
+                    where 1 and 2 refer to lattice points
+
 
         Constructor arguments:
 
@@ -136,24 +202,19 @@ class sc():
 
         a -- Lattice constant
 
-        lVectors -- Lattice vectors for the given periodicity of unit cell
+        init_pos -- Position of base atom which will be extended to
+        desired peiodicity
 
-        recipVectors -- Reciprocal vectors to the lattice vectors
 
-        cutoff -- Distance cutoff for nearest neighbour
-
-        nearestN -- a list containing tuples that have
-                    (index of 1st atom in self.atoms, index of 2nd atom, distance(1,2))
-                    where 1 and 2 refer to lattice points.
 
     '''
 
-    def __init__(self,element,dimensionOfLattice,a):
+    def __init__(self,element,dimensionOfLattice,a,init_pos):
 
         self.element = element
         self.structure = "Simple Cubic"
-        self.atoms = np.zeros((1,3))
-        self.cutoff =  a + 0.001
+        self.atoms = np.array(init_pos)
+        self.cutoff = a + 0.001
 
 
         extraAtoms = self.extendUnitCell(self.atoms,dimensionOfLattice,a)
@@ -192,8 +253,8 @@ class sc():
         unitVectors = [np.array([[a,0,0]]),np.array([[0,a,0]]),np.array([[0,0,a]])]
 
 
-
         for length, unitVector in zip(dimensionOfLattice,unitVectors):
+
             atomCount, __  = atoms.shape
 
             for i in range(0,length-1):
@@ -249,6 +310,7 @@ class sc():
         #Centering around l1
         t = l2-l1
 
+
         #Calculating fractional coordinates in line with lecturenotes
         n1 = dotProduct(b1,t)%1
         n2 = dotProduct(b2,t)%1
@@ -293,31 +355,53 @@ class fcc(sc):
     '''Creates an instance of a face centred cubic crystal
 
         Subclassed from sc and extends that class by adding the extra atoms in
-        a bcc unit cell
+        a fcc unit cell
 
     '''
 
-    def __init__(self,element,dimensionOfLattice,a):
-        super().__init__(element,dimensionOfLattice,a)
+    def __init__(self,element,dimensionOfLattice,a,init_pos):
+        super().__init__(element,dimensionOfLattice,a,init_pos)
         self.structure = "Face Centred Cubic"
 
+        init_pos = np.concatenate((init_pos,init_pos,init_pos),axis =1)
         #Hard coded fcc atoms
         extraAtoms =np.array( [[0,0.5*a,0.5*a]+[0.5*a,0,0.5*a]+[0.5*a,0.5*a,0]])
+        extraAtoms += init_pos
+
         extraAtoms = extraAtoms.reshape((-1,3))
         extraAtoms = super().extendUnitCell(extraAtoms,dimensionOfLattice,a)
         self.atoms = np.concatenate((self.atoms,extraAtoms),axis = 0)
 
+        #Add charge as 4th column
+        atomCount, __ = self.atoms.shape
+
+        if self.element == "Mg":
+            chargeCol = np.zeros((atomCount,1)) + 2
+        elif self.element == "O":
+            chargeCol = np.zeros((atomCount,1)) -2
+
+        self.atoms = np.concatenate((self.atoms,chargeCol),axis = 1)
+
 
         maxLength = max(dimensionOfLattice)
 
-        self.cutoff = a/math.sqrt(2) +0.001
+        self.cutoff = a/math.sqrt(2) +0.001 +0.01
 
 
-    def LJ_potential(self, distance):
+    
 
-        sig_dist = sigma/distance
 
-        return 4*epsilon * (sig_dist**12 - sig_dist**6)
+    def __add__(self,otherCrystal):
+        '''
+        Addition operator acting on an fcc crystal class instance now
+        concatenates the array holding the atoms
+
+        Has no return value - only a side effect
+        '''
+
+        self.atoms = np.concatenate((self.atoms,otherCrystal.atoms),axis = 0)
+
+        return None
 
 
     def getDistanceMatrix(self):
@@ -334,22 +418,26 @@ class fcc(sc):
         self.distanceMatrix = []
 
         atomCount, __  = self.atoms.shape
-        #Changed to count every atom
-        for i in range(0,atomCount-1):
-            for j in range(0,atomCount):
-                #Can optimise by only doing once through and then appending the
-                #a list comprehension with elements 1,2 reversed
-                if j != i:
+        for i in range(0,atomCount-1): 
+            for j in range(i+1,atomCount):
 
-                    #Apply PBC
-                    fracCord, PBCcoord = self.PBC(self.atoms[i,:3],self.atoms[j,:3])
+                #Apply PBC
+                fracCord, PBCcoord = self.PBC(self.atoms[i,:3],self.atoms[j,:3])
 
-                    PBC_distance = math.sqrt(dotProduct(PBCcoord,PBCcoord))
+                distance = math.sqrt(dotProduct(PBCcoord,PBCcoord))
 
-                    if PBC_distance  <= self.cutoff:                
-                        non_PBCcoord = self.atoms[j,:3] - self.atoms[i,:3]
-                        norm_distance = math.sqrt(dotProduct(non_PBCcoord,non_PBCcoord))
-                        self.distanceMatrix.append((i,j,PBC_distance,PBCcoord))
+
+                if distance  <= self.cutoff:
+                    if self.atoms[i,3] == self.atoms[j,3]:
+                        if self.atoms[i,3] <0:
+                            parameters = "mm"
+                        else:
+                            parameters = "pp"
+
+                    else:
+                        parameters = "pm"
+
+                    self.distanceMatrix.append((i,j,distance,parameters,PBCcoord))
 
 
     def getTotalPotential(self):
@@ -360,65 +448,74 @@ class fcc(sc):
         self.latticePotential = 0
 
         for row in self.distanceMatrix:
-            self.latticePotential += self.LJ_potential(row[2])
+
+            #Get Buckingham potential
+            if row[3] != "pp":
+                self.latticePotential += Buckingham_potential(row[2],row[3])
 
 
+            #Get Coulomn potential
+            self.latticePotential += Coulomb_potential(row[2],row[3])
 
+    def steepestDescent(self, fprime1, fprime2, h = 10**(-3), smolNum = 0.01):
 
-
-    def steepestDescent(self, fprime, h = 10**(-3), smolNum= 0.001):
-        '''
-        To avoid unnecessary calculations probably gonna remove element from distancematrix list
-        '''
-        for i in range(0,100): #NEED TO ADD CONDITION BASED ON ALPHA LIKE CG CASE
+        alpha = 10
+        while alpha > 0.0038:
             #Givesd correct shape for gradient
-            g = np.zeros((self.atoms.shape))
+            g = np.zeros((self.atoms[:,0:3].shape))
 
             self.getDistanceMatrix()
 
             #Get negative of gradient
             for row in self.distanceMatrix:
-                result = fprime(row[2],row[3]) / 2
+                result = fprime1(row[2],row[3],row[4]) / 2
+                if row[3] != "pp":
+                    result += fprime2(row[2],row[3],row[4]) / 2
                 #Negative of gradient applied here
                 g[row[0]] -= result
                 g[row[1]] += result
 
-
-
             
             #Copy atoms before moving them for line minimisation
             temporary_copy = np.copy(self.atoms)
-            self.atoms += smolNum * g
+            self.atoms[:,0:3] += smolNum * g
             self.getDistanceMatrix()
 
             #Get f'(x + sigma*g)
-            f_displaced = np.zeros((self.atoms.shape))
+            f_displaced = np.zeros((g.shape))
             for row in self.distanceMatrix:
-                result = fprime(row[2],row[3]) / 2
+                result = fprime1(row[2],row[3],row[4]) / 2
+                if row[3] != "pp":
+                    result += fprime2(row[2],row[3],row[4]) / 2
                 f_displaced[row[0]] += result
                 f_displaced[row[1]] -= result
 
             alpha =  lineMinimisation(g,f_displaced,smolNum)
 
-            self.atoms = temporary_copy + alpha * g
-            print(np.mean(np.square(g)))
-            
+            self.atoms[:,0:3] = temporary_copy[:,0:3] + alpha * g
+            print(alpha)
 
 
 
 
-Ne = fcc("Ne",dimensionOfLattice,LatticeConstant)
+Mgfcc = fcc("Mg",dimensionOfLattice,LatticeConstant,[[0,0,0]])
+Ofcc = fcc("O",dimensionOfLattice,LatticeConstant,[[0,0,LatticeConstant/2]])
 
-writeToxyz("NeBeforePerturb.xyz",Ne)
+Mgfcc + Ofcc
+MgOfcc = Mgfcc
+
+
+
+writeToxyz("MgO_BeforePerturb.xyz",MgOfcc)
+
 
 #Apply random perturbations to atoms
 for i in range(0,150):
-    RNG_atom = random.randint(0,Ne.atoms.shape[0]-1)
+    RNG_atom = random.randint(0,MgOfcc.atoms.shape[0]-1)
     RNG_coord = random.randint(0,2)
     temp = random.random() * 0.25
-    Ne.atoms[RNG_atom,RNG_coord] += temp
+    MgOfcc.atoms[RNG_atom,RNG_coord] += temp
 
-
-writeToxyz("NeBefore_SD.xyz",Ne)
-Ne.steepestDescent(LJ_derivative)
-writeToxyz("NeAfter_SD.xyz",Ne)
+writeToxyz("MgO_Before_SD.xyz",MgOfcc)
+MgOfcc.steepestDescent(Coulomb_Derivative, Buckingham_derivative)
+writeToxyz("MgO_After_SD.xyz",MgOfcc)

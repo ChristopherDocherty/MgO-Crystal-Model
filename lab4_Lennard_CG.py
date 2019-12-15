@@ -377,7 +377,7 @@ class fcc(sc):
 
         #Get negative of gradient
         for row in self.distanceMatrix:
-            result = LJ_derivative(row[2],row[3]) / 2
+            result = fprime(row[2],row[3]) / 2
             #Negative of gradient applied here
             g[row[0]] -= result
             g[row[1]] += result
@@ -394,7 +394,7 @@ class fcc(sc):
             self.getDistanceMatrix()
             f_displaced = np.zeros((self.atoms.shape))
             for row in self.distanceMatrix:
-                result = LJ_derivative(row[2],row[3]) / 2
+                result = fprime(row[2],row[3]) / 2
                 f_displaced[row[0]] += result
                 f_displaced[row[1]] -= result
             alpha =  lineMinimisation(h,f_displaced,smolNum)
@@ -407,7 +407,7 @@ class fcc(sc):
             #Get negative of gradient
             self.getDistanceMatrix()
             for row in self.distanceMatrix:
-                result = LJ_derivative(row[2],row[3]) / 2
+                result = fprime(row[2],row[3]) / 2
                 #Negative of gradient applied here
                 g[row[0]] -= result
                 g[row[1]] += result
@@ -431,13 +431,7 @@ class fcc(sc):
 Ne = fcc("Ne",dimensionOfLattice,LatticeConstant)
 
 
-
-#print(Ne.distanceMatrix)
-
-
-
-
-writeToxyz("NeBeforeBef.xyz",Ne)
+writeToxyz("NeBeforePerturb.xyz",Ne)
 
 #Apply random perturbations to atoms
 for i in range(0,150):
@@ -447,6 +441,6 @@ for i in range(0,150):
     Ne.atoms[RNG_atom,RNG_coord] += temp
 
 
-writeToxyz("NeBefore.xyz",Ne)
+writeToxyz("NeBefore_CG.xyz",Ne)
 Ne.conjugate_gradient(LJ_derivative)
-writeToxyz("NeAfter.xyz",Ne)
+writeToxyz("NeAfter_CG.xyz",Ne)

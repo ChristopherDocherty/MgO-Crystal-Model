@@ -3,9 +3,10 @@
 import numpy as np
 import math
 import matplotlib.pyplot as plt
+import random
 
 #Hard coded parameters for crystals
-dimensionOfLattice = (5,5,5) #Equivalent to coding n's
+dimensionOfLattice = (2,2,2) #Equivalent to coding n's
 LatticeConstant = 4.2 #Measured in Angstroms
 
 #Coulomb Parameters
@@ -25,6 +26,97 @@ q = 1.7**2
 #interactions
 paramDict = {"mm":(4870.0,0.2670,77.0),"pm":(926.69,0.29909,0)}
 
+
+def writeToxyz(filename,crystal):
+    ''' Takes some crystal class instance and writes its data to a .xyz file
+
+    Arguments:
+
+    filename -- Desired filename, should end in .xyz
+
+    crystal -- instance of any crystal type (i.e. sc class or subclass of sc)
+
+
+    '''
+    crystalFile = open(filename,"wt")
+
+
+    atomCountFinal = crystal.atoms.shape[0]
+
+
+    crystalFile.write("{0}\n".format(atomCountFinal) )
+    crystalFile.write("This is a {0} {1} \n".format(dimensionOfLattice,crystal.structure))
+    for i in range(0,atomCountFinal):
+        crystalFile.write("{0:s} \t {1:0.9f} \t {2:0.9f} \t {3:0.9f} \n".format(crystal.element,crystal.atoms[i,0],crystal.atoms[i,1],crystal.atoms[i,2]))
+
+    return
+
+
+
+def lineMinimisation(g,f_displaced,smolNum):
+
+    numerator = np.sum(np.multiply(-g,g))
+    denomenator = np.sum(np.multiply(f_displaced + g,g))
+    return -smolNum * numerator / denomenator
+
+
+
+def Coulomb_Derivative(r,params,pos_vec):
+
+    if params == "pm":
+        q_product = - q
+    else:
+        q_product = q
+
+    return ( (ke*q_product)/r**3 ) * pos_vec 
+
+def Coulomb_potential(r,params):
+        '''
+        Calculates Coulomb potential of two atoms/ions
+
+        Arguments:
+
+        r - Seperation of the two atoms in Angstrom
+
+        params - String containing "pm" if the potential is for cation <->
+        anion and containgin "mm" if anion <-> anion
+
+        Returns: Potential energy in eV
+        '''
+
+        if params == "pm":
+            q_product = - q
+        else:
+            q_product = q
+
+
+        return (ke*q_product)/r
+
+
+def Buckingham_derivative(r,params,pos_vec):
+
+    A, rho, C = paramDict[params]
+
+    return ( A/(rho*r) * math.exp(-r/rho) - C/(r**8) ) * pos_vec
+
+
+def Buckingham_potential(r,params):
+    '''
+    Calculates Buckingham potential of two atoms/ions
+
+    Arguments:
+
+    r - Seperation of the two atoms in Angstrom
+
+    params - String containing "pm" if the potential is for cation <->
+    anion and containgin "mm" if anion <-> anion
+
+    Returns: Potential energy in eV
+    '''
+
+    A, rho, C = paramDict[params]
+
+    return A * math.exp(-r/rho) - C/(r**6)
 
 
 
@@ -65,6 +157,9 @@ def crossProduct(v1,v2):
 
 
     return v3
+
+
+
 
 
 
@@ -252,10 +347,6 @@ class sc():
 
 
 
-
-
-
-
 class fcc(sc):
     '''Creates an instance of a face centred cubic crystal
 
@@ -292,49 +383,6 @@ class fcc(sc):
 
         self.cutoff = a * maxLength
 
-
-
-
-    def Buckingham_potential(self,r,params):
-        '''
-        Calculates Buckingham potential of two atoms/ions
-
-        Arguments:
-
-        r - Seperation of the two atoms in Angstrom
-
-        params - String containing "pm" if the potential is for cation <->
-        anion and containgin "mm" if anion <-> anion
-
-        Returns: Potential energy in eV
-        '''
-
-        A, rho, C = paramDict[params]
-
-        return A * math.exp(-r/rho) - C/(r**6)
-
-
-    def Coulomb_potential(self,r,params):
-        '''
-        Calculates Coulomb potential of two atoms/ions
-
-        Arguments:
-
-        r - Seperation of the two atoms in Angstrom
-
-        params - String containing "pm" if the potential is for cation <->
-        anion and containgin "mm" if anion <-> anion
-
-        Returns: Potential energy in eV
-        '''
-
-        if params == "pm":
-            q_product = - q
-        else:
-            q_product = q
-
-
-        return (ke*q_product)/r
 
 
     def __add__(self,otherCrystal):
@@ -383,7 +431,7 @@ class fcc(sc):
                     else:
                         parameters = "pm"
 
-                    self.distanceMatrix.append((i,j,distance,parameters))
+                    self.distanceMatrix.append((i,j,distance,parameters,PBCcoord))
 
 
     def getTotalPotential(self):
@@ -397,67 +445,76 @@ class fcc(sc):
 
             #Get Buckingham potential
             if row[3] != "pp":
-                self.latticePotential += self.Buckingham_potential(row[2],row[3])
+                self.latticePotential += Buckingham_potential(row[2],row[3])
 
 
             #Get Coulomn potential
-            self.latticePotential += self.Coulomb_potential(row[2],row[3])
+            self.latticePotential += Coulomb_potential(row[2],row[3])
+
+
+    def conjugate_gradient(self, fprime1, fprime2, h = 10**(-3), smolNum= 0.001):
+        '''
+        To avoid unnecessary calculations probably gonna remove element from distancematrix list
+        '''
+        #Givesd correct shape for gradient
+        g = np.zeros((self.atoms[:,0:3].shape))
+
+        self.getDistanceMatrix()
+
+        #Get negative of gradient
+        for row in self.distanceMatrix:
+            result = fprime1(row[2],row[3],row[4]) / 2
+            if row[3] != "pp":
+                result += fprime2(row[2],row[3],row[4]) / 2
+            #Negative of gradient applied here
+            g[row[0]] -= result
+            g[row[1]] += result
+
+        h = g
+
+        alpha = 10
+        for i in range(0,3):
+
+            #Copy atoms before moving them for line minimisation
+            temporary_copy = np.copy(self.atoms)
+            self.atoms[:,0:3] += smolNum * h
+            #Get f'(x + sigma*h)
+            self.getDistanceMatrix()
+            f_displaced = np.zeros((g.shape))
+            for row in self.distanceMatrix:
+                result = fprime1(row[2],row[3],row[4]) / 2
+                if row[3] != "pp":
+                    result += fprime2(row[2],row[3],row[4]) / 2
+                f_displaced[row[0]] += result
+                f_displaced[row[1]] -= result
+            alpha =  lineMinimisation(h,f_displaced,smolNum)
+
+            self.atoms[:,0:3] = temporary_copy[:,0:3] + alpha * h 
+
+
+            g_prev = g
+            g = np.zeros((g.shape))
+            #Get negative of gradient
+            self.getDistanceMatrix()
+            for row in self.distanceMatrix:
+                result = fprime1(row[2],row[3],row[4]) / 2
+                if row[3] != "pp":
+                    result += fprime2(row[2],row[3],row[4]) / 2
+                #Negative of gradient applied here
+                g[row[0]] -= result
+                g[row[1]] += result
+
+            gam_numer = np.sum(np.multiply(g,g))
+            gam_denom = np.sum(np.multiply(g_prev,g_prev))
+
+            gam = gam_numer / gam_denom
+            gam = max(gam,0)
+
+            h = g + gam * h
+            print(alpha)
 
 
 
-#Uncomment the below code to see the graph showing the lattice constant for
-#which potential is mnimised
-'''
-lConstants = np.arange(4,4.5,0.05)
-pots = []
-
-for i in lConstants:
-        Mgfcc = fcc("Mg",dimensionOfLattice,i,[[0,0,0]])
-        Ofcc = fcc("O",dimensionOfLattice,i,[[0,0,i/2]])
-
-        Mgfcc + Ofcc
-        MgOfcc = Mgfcc
-
-        MgOfcc.getDistanceMatrix()
-        MgOfcc.getTotalPotential()
-
-        pots.append(MgOfcc.latticePotential)
-
-
-
-print("The below graph shows the minimum occuring at 4.2 Angstroms as expected for MgO")
-plt.plot(lConstants,pots)
-plt.ylabel("Potential (eV)")
-plt.xlabel("Lattice Constant (Angstrom)")
-plt.title("Potential Minimising Lattice Constant")
-plt.show()
-'''
-
-
-
-
-
-#To see test for converging average energy per per atom uncomment belwo section
-'''
-dims = [(x,x,x) for x in range(1,6)]
-pots = []
-
-
-for i in dims:
-        Mgfcc = fcc("Mg",i,LatticeConstant,[[0,0,0]])
-        Ofcc = fcc("O",i,LatticeConstant,[[0,0,LatticeConstant/2]])
-
-        Mgfcc + Ofcc
-        MgOfcc = Mgfcc
-
-        MgOfcc.getDistanceMatrix()
-        MgOfcc.getTotalPotential()
-
-        pots.append(MgOfcc.latticePotential/(i[1]**3))
-
-print(Below is the average energy per atom for cubes of size 1x1x1 to 5x5x5: \n)
-print(pots)
-'''
 
 Mgfcc = fcc("Mg",dimensionOfLattice,LatticeConstant,[[0,0,0]])
 Ofcc = fcc("O",dimensionOfLattice,LatticeConstant,[[0,0,LatticeConstant/2]])
@@ -465,7 +522,17 @@ Ofcc = fcc("O",dimensionOfLattice,LatticeConstant,[[0,0,LatticeConstant/2]])
 Mgfcc + Ofcc
 MgOfcc = Mgfcc
 
-MgOfcc.getDistanceMatrix()
-MgOfcc.getTotalPotential()
 
-print("Given an MgO lattice of size {0} and with lattice constant {1} Angstroms the total potential was found to be {2} eV".format(dimensionOfLattice,LatticeConstant,MgOfcc.latticePotential))
+writeToxyz("MgO_BeforePerturb.xyz",MgOfcc)
+
+#Apply random perturbations to atoms
+for i in range(0,150):
+    RNG_atom = random.randint(0,MgOfcc.atoms.shape[0]-1)
+    RNG_coord = random.randint(0,2)
+    temp = random.random() * 0.25
+    MgOfcc.atoms[RNG_atom,RNG_coord] += temp
+
+
+writeToxyz("MgO_Before_CG.xyz",MgOfcc)
+MgOfcc.conjugate_gradient(Coulomb_Derivative, Buckingham_derivative)
+writeToxyz("MgO_After_CG.xyz",MgOfcc)
