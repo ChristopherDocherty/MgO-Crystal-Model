@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import random
 
 #Hard coded parameters for crystals
-dimensionOfLattice = (2,2,2) #Equivalent to coding n's
+dimensionOfLattice = (4,4,4) #Equivalent to coding n's
 LatticeConstant = 4.2 #Measured in Angstroms
 
 #Coulomb Parameters
@@ -60,7 +60,6 @@ def lineMinimisation(g,f_displaced,smolNum):
     return -smolNum * numerator / denomenator
 
 
-
 def Coulomb_Derivative(r,params,pos_vec):
 
     if params == "pm":
@@ -97,7 +96,7 @@ def Buckingham_derivative(r,params,pos_vec):
 
     A, rho, C = paramDict[params]
 
-    return ( A/(rho*r) * math.exp(-r/rho) - C/(r**8) ) * pos_vec
+    return ( A/(rho*r) * math.exp(-r/rho) - 6*C/(r**8) ) * pos_vec
 
 
 def Buckingham_potential(r,params):
@@ -117,6 +116,7 @@ def Buckingham_potential(r,params):
     A, rho, C = paramDict[params]
 
     return A * math.exp(-r/rho) - C/(r**6)
+
 
 
 
@@ -347,6 +347,10 @@ class sc():
 
 
 
+
+
+
+
 class fcc(sc):
     '''Creates an instance of a face centred cubic crystal
 
@@ -381,8 +385,10 @@ class fcc(sc):
 
         maxLength = max(dimensionOfLattice)
 
-        self.cutoff = a * maxLength
+        self.cutoff = a/math.sqrt(2) +0.001 +0.01
 
+
+    
 
 
     def __add__(self,otherCrystal):
@@ -412,7 +418,7 @@ class fcc(sc):
         self.distanceMatrix = []
 
         atomCount, __  = self.atoms.shape
-        for i in range(0,atomCount-1):
+        for i in range(0,atomCount-1): 
             for j in range(i+1,atomCount):
 
                 #Apply PBC
@@ -451,51 +457,16 @@ class fcc(sc):
             #Get Coulomn potential
             self.latticePotential += Coulomb_potential(row[2],row[3])
 
+    def steepestDescent(self, fprime1, fprime2, h = 10**(-3), smolNum = 0.01):
 
-    def conjugate_gradient(self, fprime1, fprime2, h = 10**(-3), smolNum= 0.001):
-        '''
-        To avoid unnecessary calculations probably gonna remove element from distancematrix list
-        '''
-        #Givesd correct shape for gradient
-        g = np.zeros((self.atoms[:,0:3].shape))
+        
+        for i in range(0,50): 
+            #Givesd correct shape for gradient
+            g = np.zeros((self.atoms[:,0:3].shape))
 
-        self.getDistanceMatrix()
-
-        #Get negative of gradient
-        for row in self.distanceMatrix:
-            result = fprime1(row[2],row[3],row[4]) / 2
-            if row[3] != "pp":
-                result += fprime2(row[2],row[3],row[4]) / 2
-            #Negative of gradient applied here
-            g[row[0]] -= result
-            g[row[1]] += result
-
-        h = g
-
-        alpha = 10
-        for i in range(0,3):
-
-            #Copy atoms before moving them for line minimisation
-            temporary_copy = np.copy(self.atoms)
-            self.atoms[:,0:3] += smolNum * h
-            #Get f'(x + sigma*h)
             self.getDistanceMatrix()
-            f_displaced = np.zeros((g.shape))
-            for row in self.distanceMatrix:
-                result = fprime1(row[2],row[3],row[4]) / 2
-                if row[3] != "pp":
-                    result += fprime2(row[2],row[3],row[4]) / 2
-                f_displaced[row[0]] += result
-                f_displaced[row[1]] -= result
-            alpha =  lineMinimisation(h,f_displaced,smolNum)
 
-            self.atoms[:,0:3] = temporary_copy[:,0:3] + alpha * h 
-
-
-            g_prev = g
-            g = np.zeros((g.shape))
             #Get negative of gradient
-            self.getDistanceMatrix()
             for row in self.distanceMatrix:
                 result = fprime1(row[2],row[3],row[4]) / 2
                 if row[3] != "pp":
@@ -504,14 +475,33 @@ class fcc(sc):
                 g[row[0]] -= result
                 g[row[1]] += result
 
-            gam_numer = np.sum(np.multiply(g,g))
-            gam_denom = np.sum(np.multiply(g_prev,g_prev))
+            
+            gradient_prev = g
 
-            gam = gam_numer / gam_denom
-            gam = max(gam,0)
+            #Copy atoms before moving them for line minimisation
+            temporary_copy = np.copy(self.atoms)
+            self.atoms[:,0:3] += smolNum * g
+            self.getDistanceMatrix()
 
-            h = g + gam * h
-            print(alpha)
+            #Get f'(x + sigma*g)
+            f_displaced = np.zeros((g.shape))
+            for row in self.distanceMatrix:
+                result = fprime1(row[2],row[3],row[4]) / 2
+                if row[3] != "pp":
+                    result += fprime2(row[2],row[3],row[4]) / 2
+                f_displaced[row[0]] += result
+                f_displaced[row[1]] -= result
+
+            alpha =  lineMinimisation(g,f_displaced,smolNum)
+
+            self.atoms[:,0:3] = temporary_copy[:,0:3] + alpha * g
+            
+            print(np.sum(np.square(g)))
+            if np.sum(np.square(gradient_prev)) < 2000:
+                break
+            elif np.sum(np.square(gradient_prev)) < 14000 :
+                smolNum = 0.005
+            
 
 
 
@@ -523,16 +513,14 @@ Mgfcc + Ofcc
 MgOfcc = Mgfcc
 
 
-writeToxyz("MgO_BeforePerturb.xyz",MgOfcc)
-
 #Apply random perturbations to atoms
-for i in range(0,150):
-    RNG_atom = random.randint(0,MgOfcc.atoms.shape[0]-1)
+for i in range(0,MgOfcc.atoms.shape[0]):
     RNG_coord = random.randint(0,2)
-    temp = random.random() * 0.25
-    MgOfcc.atoms[RNG_atom,RNG_coord] += temp
+    temp = random.random() * 0.1 * LatticeConstant
+    MgOfcc.atoms[i,RNG_coord] += temp
 
 
-writeToxyz("MgO_Before_CG.xyz",MgOfcc)
-MgOfcc.conjugate_gradient(Coulomb_Derivative, Buckingham_derivative)
-writeToxyz("MgO_After_CG.xyz",MgOfcc)
+
+writeToxyz("MgO_Before_SD.xyz",MgOfcc)
+MgOfcc.steepestDescent(Coulomb_Derivative, Buckingham_derivative)
+writeToxyz("MgO_After_SD.xyz",MgOfcc)

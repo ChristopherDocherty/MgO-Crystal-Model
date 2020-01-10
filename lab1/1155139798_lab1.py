@@ -6,7 +6,7 @@ import numpy as np
 
 
 #Hard coded parameters for crystals
-dimensionOfLattice = (1,1,1)
+dimensionOfLattice = (7,7,7)
 LatticeConstant = 5
 
 

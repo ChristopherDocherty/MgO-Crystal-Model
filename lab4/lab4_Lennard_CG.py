@@ -8,7 +8,7 @@ from functools import partial
 import random
 
 #Hard coded parameters for crystals
-dimensionOfLattice = (3,3,3) #Equivalent to coding n's
+dimensionOfLattice = (5,5,5) #Equivalent to coding n's
 LatticeConstant = 4.2
 
 #Lennard Jones parameters
@@ -335,7 +335,7 @@ class fcc(sc):
 
         atomCount, __  = self.atoms.shape
         #Changed to count every atom
-        for i in range(0,atomCount-1):
+        for i in range(0,atomCount):
             for j in range(0,atomCount):
                 #Can optimise by only doing once through and then appending the
                 #a list comprehension with elements 1,2 reversed
@@ -366,42 +366,74 @@ class fcc(sc):
 
 
 
-    def steepestDescent(self, fprime, h = 10**(-3), smolNum= 0.001):
+    def conjugate_gradient(self, fprime, smolNum= 1):
         '''
         To avoid unnecessary calculations probably gonna remove element from distancematrix list
         '''
-        for i in range(0,100): #NEED TO ADD CONDITION BASED ON ALPHA LIKE CG CASE
-            #Givesd correct shape for gradient
-            g = np.zeros((self.atoms.shape))
+        #Givesd correct shape for gradient
+        g = np.zeros((self.atoms.shape))
 
+        self.getDistanceMatrix()
+
+        #Get negative of gradient
+        for row in self.distanceMatrix:
+            result = fprime(row[2],row[3]) / 2
+            #Negative of gradient applied here
+            g[row[0]] -= result
+            g[row[1]] += result
+
+        h   = g
+        gradient = 30 * np.ones((np.shape(g)))
+        gradient_prev = 20 * np.ones((g.shape))
+
+    
+        while np.sum(np.square(gradient)) > np.sum(np.square(gradient_prev)):
+            gradient = gradient_prev
+            #Copy atoms before moving them for line minimisation
+            temporary_copy = np.copy(self.atoms)
+            self.atoms += smolNum * h
+            #Get f'(x + sigma*h)
             self.getDistanceMatrix()
+            f_displaced = np.zeros((self.atoms.shape))
+            for row in self.distanceMatrix:
+                result = fprime(row[2],row[3]) / 2
+                f_displaced[row[0]] += result
+                f_displaced[row[1]] -= result
+            alpha =  lineMinimisation(h,f_displaced,smolNum)
 
+            self.atoms = temporary_copy + alpha * h 
+
+
+            g_prev = g
+            gradient_prev = g_prev
+
+            g = np.zeros((g.shape))
             #Get negative of gradient
+            self.getDistanceMatrix()
             for row in self.distanceMatrix:
                 result = fprime(row[2],row[3]) / 2
                 #Negative of gradient applied here
                 g[row[0]] -= result
                 g[row[1]] += result
 
+            gam_numer = np.sum(np.multiply(g,g))
+            gam_denom = np.sum(np.multiply(g_prev,g_prev))
+
+            gam = gam_numer / gam_denom
+            gam = max(gam,0)
+
+            h = g + gam * h
+
+            if np.sum(np.square(gradient_prev)) < 0.06:
+                break
+            elif np.sum(np.square(gradient_prev)) < 0.07:
+                smolNum = 0.005
+            elif np.sum(np.square(gradient_prev)) < 0.13 :
+                smolNum = 0.05
+            print(np.sum(np.square(gradient_prev)))
 
 
-            
-            #Copy atoms before moving them for line minimisation
-            temporary_copy = np.copy(self.atoms)
-            self.atoms += smolNum * g
-            self.getDistanceMatrix()
-
-            #Get f'(x + sigma*g)
-            f_displaced = np.zeros((self.atoms.shape))
-            for row in self.distanceMatrix:
-                result = fprime(row[2],row[3]) / 2
-                f_displaced[row[0]] += result
-                f_displaced[row[1]] -= result
-
-            alpha =  lineMinimisation(g,f_displaced,smolNum)
-
-            self.atoms = temporary_copy + alpha * g
-            print(np.mean(np.square(g)))
+           
             
 
 
@@ -409,16 +441,14 @@ class fcc(sc):
 
 Ne = fcc("Ne",dimensionOfLattice,LatticeConstant)
 
-writeToxyz("NeBeforePerturb.xyz",Ne)
-
 #Apply random perturbations to atoms
-for i in range(0,150):
-    RNG_atom = random.randint(0,Ne.atoms.shape[0]-1)
+for i in range(0,Ne.atoms.shape[0]):
     RNG_coord = random.randint(0,2)
-    temp = random.random() * 0.25
-    Ne.atoms[RNG_atom,RNG_coord] += temp
+    temp = random.random() * 0.1 * LatticeConstant
+    Ne.atoms[i,RNG_coord] += temp
 
 
-writeToxyz("NeBefore_SD.xyz",Ne)
-Ne.steepestDescent(LJ_derivative)
-writeToxyz("NeAfter_SD.xyz",Ne)
+
+writeToxyz("NeBefore_CG.xyz",Ne)
+Ne.conjugate_gradient(LJ_derivative)
+writeToxyz("NeAfter_CG.xyz",Ne)
