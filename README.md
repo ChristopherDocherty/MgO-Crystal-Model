@@ -1,7 +1,7 @@
 # PHYS4061 - MgO & Ne crystal modeling
 
 This project can simulate crystal structure and apply periodic boundary conditions to better simulate
-the behaviour of individual atoms in a lattice structure. This allows for relaxation through conjugate gradient and steepest descent methods.
+the behaviour of individual atoms in a lattice structure. This allows for relaxation through conjugate gradient and steepest descent methods. The report can be found in this repo.
 
 
 Dependencies:
