@@ -1,4 +1,4 @@
-#PHYS4061 - MgO & Ne crystal modeling
+# PHYS4061 - MgO & Ne crystal modeling
 
 This project can simulate crystal structure and apply periodic boundary conditions to better simulate
 the behaviour of individual atoms in a lattice structure. This allows for relaxation through conjugate gradient and steepest descent methods.
@@ -15,7 +15,7 @@ This repository holds python code for modelling crystals. The crystal structure 
 Lab 4 code comprises the finsihed project which can take a lattice of atoms, randomly perturb them and then relax them into their equilibrium position using either conjugate gradient or steepest descent algorithms. Example structures for before and after relaxation can be fond in the lab4 folder.
 
 
-The parameters used are as shown below:
+# References
 
 Lennard Jones Parameters
 
