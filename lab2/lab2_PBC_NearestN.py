@@ -1,6 +1,6 @@
-#Program to produce .xyz files for Sc, Bcc, Fcc, and
-#Diamond crystalline structures with the intent to display
-#in VMD
+#Extension of lab 1 which applies 
+#Periodic Boundary Conditions to find the nearest neighbours
+#of a lattice point within some distance
 
 import numpy as np
 import math
@@ -160,6 +160,8 @@ class sc():
 
     def getReciprocal(self):
         '''
+        Calculates the reciprocal vectors for the lattice vectors
+        for the particular class instance
         '''
         #unpack lattice vectors
         a1,a2,a3 = self.lVectors

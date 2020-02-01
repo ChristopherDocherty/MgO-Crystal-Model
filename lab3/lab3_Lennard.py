@@ -157,6 +157,8 @@ class sc():
 
     def getReciprocal(self):
         '''
+        Calculates the reciprocal vectors for the lattice vectors
+        for the particular class instance
         '''
         #unpack lattice vectors
         a1,a2,a3 = self.lVectors
@@ -266,7 +268,18 @@ class fcc(sc):
         self.cutoff = (maxLength) * a + 0.01
 
 
-    def LJ_potential(self, distance):
+    def LJ_potential(self, distance):   
+        '''
+        For a given distance calculates the Lennard Jones
+        potential contribution in eV
+        
+        Arguments:
+
+        distance - Seperation of the two atoms in Angstrom
+
+        Returns: Potential energy in eV
+        '''
+        
 
         sig_dist = sigma/distance
 
@@ -302,7 +315,9 @@ class fcc(sc):
 
     def getTotalPotential(self):
         '''
-        Iterates through the distance matrix adding each pair of atoms contribution to the total potential energy of the lattice. This value is saved in the class instances attribute: latticePotential
+        Iterates through the distance matrix adding each pair of atoms contribution to 
+        the total potential energy of the lattice. This value is saved in the class 
+        instances attribute: latticePotential
         '''
 
         self.latticePotential = 0

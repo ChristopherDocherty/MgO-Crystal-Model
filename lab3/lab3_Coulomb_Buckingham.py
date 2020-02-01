@@ -175,6 +175,8 @@ class sc():
 
     def getReciprocal(self):
         '''
+        Calculates the reciprocal vectors for the lattice vectors
+        for the particular class instance
         '''
         #unpack lattice vectors
         a1,a2,a3 = self.lVectors

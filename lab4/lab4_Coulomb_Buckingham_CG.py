@@ -1,4 +1,5 @@
-#Coulomb-Buckingham potential for KF crystal
+#Extension of lab 3 adding a Conjugate Gradient
+#method to relax atoms into their equilibrium positions
 
 import numpy as np
 import math
@@ -54,6 +55,19 @@ def writeToxyz(filename,crystal):
 
 
 def lineMinimisation(g,f_displaced,smolNum):
+        '''
+        Performs line minimisation on the function f
+
+        Arguments:
+
+        g - gradient of f at some specified point
+
+        f_displaced - gradient of f shifted by smolNum * h
+
+        smolNum - a very small number e.g. e-7
+
+        Returns: line minimisation constant for shift by h
+        '''
 
     numerator = np.sum(np.multiply(-g,g))
     denomenator = np.sum(np.multiply(f_displaced + g,g))
@@ -62,6 +76,21 @@ def lineMinimisation(g,f_displaced,smolNum):
 
 
 def Coulomb_Derivative(r,params,pos_vec):
+    '''
+    Calculates the derivative of the Coloumb Potential
+    between two lattice points
+
+    Arguments:
+
+    r - Seperation of the two atoms in Angstrom
+
+    params - String containing "pm" if the potential is for cation <->
+    anion and containgin "mm" if anion <-> anion
+
+    pos_vec - vector from one atom to the other
+
+    returns: vector containing potential gradient
+    '''
 
     if params == "pm":
         q_product = - q
@@ -70,30 +99,47 @@ def Coulomb_Derivative(r,params,pos_vec):
 
     return ( (ke*q_product)/r**3 ) * pos_vec 
 
+
 def Coulomb_potential(r,params):
-        '''
-        Calculates Coulomb potential of two atoms/ions
+    '''
+    Calculates Coulomb potential of two atoms/ions
 
-        Arguments:
+    Arguments:
 
-        r - Seperation of the two atoms in Angstrom
+    r - Seperation of the two atoms in Angstrom
 
-        params - String containing "pm" if the potential is for cation <->
-        anion and containgin "mm" if anion <-> anion
+    params - String containing "pm" if the potential is for cation <->
+    anion and containgin "mm" if anion <-> anion
 
-        Returns: Potential energy in eV
-        '''
+    returns: Potential energy in eV
+    '''
 
-        if params == "pm":
-            q_product = - q
-        else:
-            q_product = q
+    if params == "pm":
+        q_product = - q
+    else:
+        q_product = q
 
 
-        return (ke*q_product)/r
+    return (ke*q_product)/r
 
 
 def Buckingham_derivative(r,params,pos_vec):
+    '''
+    Calculates the derivative of the Buckingham Potential
+    between two lattice points
+
+    Arguments:
+
+    r - Seperation of the two atoms in Angstrom
+
+    params - String containing "pm" if the potential is for cation <->
+    anion and containgin "mm" if anion <-> anion
+
+    pos_vec - vector from one atom to the other
+
+    returns: vector containing potential gradient
+    '''
+
 
     A, rho, C = paramDict[params]
 
@@ -270,6 +316,8 @@ class sc():
 
     def getReciprocal(self):
         '''
+        Calculates the reciprocal vectors for the lattice vectors
+        for the particular class instance
         '''
         #unpack lattice vectors
         a1,a2,a3 = self.lVectors
@@ -453,8 +501,16 @@ class fcc(sc):
 
 
     def conjugate_gradient(self, fprime1, fprime2, h = 10**(-3), smolNum= 0.001):
-        '''
-        To avoid unnecessary calculations probably gonna remove element from distancematrix list
+        '''        
+        Iteratively perform conjugate gradient until a desired level of accuracy is achieved
+
+        Arguments:
+
+        fprime - function for calculating derivative
+
+        smolNum - greatest possible error allowed for return
+
+        returns: None, side effect of relaxing self.atoms
         '''
         #Givesd correct shape for gradient
         g = np.zeros((self.atoms[:,0:3].shape))

@@ -48,14 +48,37 @@ def writeToxyz(filename,crystal):
 
 
 def lineMinimisation(g,f_displaced,smolNum):
+    '''
+        Performs line minimisation on the function f
 
+        Arguments:
+
+        g - gradient of f at some specified point
+
+        f_displaced - gradient of f shifted by smolNum * h
+
+        smolNum - a very small number e.g. e-7
+
+        Returns: line minimisation constant for shift by h
+    '''
     numerator = np.sum(np.multiply(-g,g))
     denomenator = np.sum(np.multiply(f_displaced + g,g))
     return -smolNum * numerator / denomenator
 
 
 def LJ_derivative(dist_PBC,pos_vec):
+    '''
+    Calculates the derivative of the Lennard Jones Potential
+    between two lattice points
 
+    Arguments:
+
+    dist_PBC - PBC seperation of the two atoms in Angstrom
+
+    pos_vec - vector from one atom to the other
+
+    returns: vector containing potential gradient
+    '''
     
     term1 = 2 * sigma12 / dist_PBC**14 
     term2 = sigma6 / dist_PBC**8 
@@ -209,6 +232,8 @@ class sc():
 
     def getReciprocal(self):
         '''
+        Calculates the reciprocal vectors for the lattice vectors
+        for the particular class instance
         '''
         #unpack lattice vectors
         a1,a2,a3 = self.lVectors
@@ -290,10 +315,11 @@ class sc():
 
 
 class fcc(sc):
-    '''Creates an instance of a face centred cubic crystal
+    '''
+    Creates an instance of a face centred cubic crystal
 
-        Subclassed from sc and extends that class by adding the extra atoms in
-        a bcc unit cell
+    Subclassed from sc and extends that class by adding the extra atoms in
+    a bcc unit cell
 
     '''
 
@@ -314,7 +340,16 @@ class fcc(sc):
 
 
     def LJ_potential(self, distance):
+        '''
+        For a given distance calculates the Lennard Jones
+        potential contribution in eV
+        
+        Arguments:
 
+        distance - Seperation of the two atoms in Angstrom
+
+        Returns: Potential energy in eV
+        '''
         sig_dist = sigma/distance
 
         return 4*epsilon * (sig_dist**12 - sig_dist**6)
@@ -367,8 +402,16 @@ class fcc(sc):
 
 
     def conjugate_gradient(self, fprime, smolNum= 1):
-        '''
-        To avoid unnecessary calculations probably gonna remove element from distancematrix list
+        '''        
+        Iteratively perform conjugate gradient until a desired level of accuracy is achieved
+
+        Arguments:
+
+        fprime - function for calculating derivative
+
+        smolNum - greatest possible error allowed for return
+
+        returns: None, side effect of relaxing self.atoms
         '''
         #Givesd correct shape for gradient
         g = np.zeros((self.atoms.shape))

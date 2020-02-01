@@ -1,5 +1,3 @@
-#Coulomb-Buckingham potential for KF crystal
-
 import numpy as np
 import math
 import matplotlib.pyplot as plt
@@ -54,6 +52,19 @@ def writeToxyz(filename,crystal):
 
 
 def lineMinimisation(g,f_displaced,smolNum):
+    '''
+        Performs line minimisation on the function f
+
+        Arguments:
+
+        g - gradient of f at some specified point
+
+        f_displaced - gradient of f shifted by smolNum * h
+
+        smolNum - a very small number e.g. e-7
+
+        Returns: line minimisation constant for shift by h
+    '''
 
     numerator = np.sum(np.multiply(-g,g))
     denomenator = np.sum(np.multiply(f_displaced + g,g))
@@ -61,6 +72,21 @@ def lineMinimisation(g,f_displaced,smolNum):
 
 
 def Coulomb_Derivative(r,params,pos_vec):
+    '''
+    Calculates the derivative of the Coloumb Potential
+    between two lattice points
+
+    Arguments:
+
+    r - Seperation of the two atoms in Angstrom
+
+    params - String containing "pm" if the potential is for cation <->
+    anion and containgin "mm" if anion <-> anion
+
+    pos_vec - vector from one atom to the other
+
+    returns: vector containing potential gradient
+    '''
 
     if params == "pm":
         q_product = - q
@@ -93,6 +119,21 @@ def Coulomb_potential(r,params):
 
 
 def Buckingham_derivative(r,params,pos_vec):
+    '''
+    Calculates the derivative of the Buckingham Potential
+    between two lattice points
+
+    Arguments:
+
+    r - Seperation of the two atoms in Angstrom
+
+    params - String containing "pm" if the potential is for cation <->
+    anion and containgin "mm" if anion <-> anion
+
+    pos_vec - vector from one atom to the other
+
+    returns: vector containing potential gradient
+    '''
 
     A, rho, C = paramDict[params]
 
@@ -270,6 +311,8 @@ class sc():
 
     def getReciprocal(self):
         '''
+        Calculates the reciprocal vectors for the lattice vectors
+        for the particular class instance
         '''
         #unpack lattice vectors
         a1,a2,a3 = self.lVectors
@@ -458,7 +501,19 @@ class fcc(sc):
             self.latticePotential += Coulomb_potential(row[2],row[3])
 
     def steepestDescent(self, fprime1, fprime2, h = 10**(-3), smolNum = 0.01):
+        '''        
+        Iteratively perform steepest descent until a desired level of accuracy is achieved
 
+        Arguments:
+
+        fprime - function for calculating derivative
+
+        h - a small number for performing shift in SD algorithm
+
+        smolNum - greatest possible error allowed for return
+
+        returns: None, side effect of relaxing self.atoms
+        '''
         
         for i in range(0,50): 
             #Givesd correct shape for gradient
